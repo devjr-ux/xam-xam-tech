@@ -64,18 +64,25 @@ class DashboardController extends Controller
             $q->where('instructor_id', $instructor->id);
         });
 
+        // Compatible MySQL et PostgreSQL
+        $isPgsql = config('database.default') === 'pgsql';
+        $dateRaw = $isPgsql
+            ? 'EXTRACT(YEAR FROM created_at) as year, EXTRACT(MONTH FROM created_at) as month, COUNT(*) as count'
+            : 'YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count';
+
         $monthlyEnrollments = Enrollment::whereIn('course_id', $courseIds)
-            ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as count')
+            ->selectRaw($dateRaw)
             ->groupBy('year', 'month')
             ->orderBy('year')
             ->orderBy('month')
             ->get()
             ->map(function ($row) {
                 $months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+                $monthIdx = (int)$row->month - 1;
                 return [
-                    'month'   => $months[$row->month - 1],
-                    'year'    => $row->year,
-                    'count'   => $row->count,
+                    'month' => $months[$monthIdx] ?? 'N/A',
+                    'year'  => (int)$row->year,
+                    'count' => (int)$row->count,
                 ];
             });
 
