@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { FaGraduationCap, FaFacebook, FaTwitter, FaLinkedin, FaYoutube, FaWhatsapp } from 'react-icons/fa'
+import { FaFacebook, FaTwitter, FaLinkedin, FaYoutube, FaWhatsapp } from 'react-icons/fa'
+import Logo from '../ui/Logo'
 import { MdEmail, MdPhone, MdLocationOn } from 'react-icons/md'
 
 const links = {
@@ -27,15 +28,9 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Brand */}
           <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center">
-                <FaGraduationCap className="text-white text-xl" />
-              </div>
-              <span className="text-2xl font-bold text-white">
-                Xam<span className="text-cyan-400">Xam</span>
-                <span className="text-slate-400 text-sm font-normal ml-1">Tech</span>
-              </span>
-            </Link>
+            <div className="mb-4">
+              <Logo to="/" size="md" />
+            </div>
             <p className="text-slate-400 text-sm leading-relaxed mb-6 max-w-sm">
               La première plateforme d&apos;e-learning moderne adaptée au contexte africain.
               Apprenez à votre rythme, où que vous soyez.

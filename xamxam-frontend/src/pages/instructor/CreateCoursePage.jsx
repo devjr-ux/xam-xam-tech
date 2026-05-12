@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useRefresh } from '../../context/RefreshContext'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   FaPlus, FaTrash, FaEdit, FaCheck, FaSpinner,
@@ -38,7 +37,14 @@ function Toast({ msg, type, onClose }) {
    MODAL LEÇON
 ══════════════════════════════════════════════════════════════ */
 function LessonModal({ lesson, onSave, onClose }) {
-  const [f, setF]     = useState({ title: lesson.title || '', type: lesson.type || 'video', video_url: lesson.video_url || '', pdf_url: lesson.pdf_url || '', duration: lesson.duration || 0, is_free: lesson.is_free || false })
+  const [f, setF] = useState({
+    title:    lesson.title    || '',
+    type:     lesson.type     || 'video',
+    videoUrl: lesson.videoUrl || lesson.video_url || '',
+    pdfUrl:   lesson.pdfUrl   || lesson.pdf_url   || '',
+    duration: lesson.duration || 0,
+    isFree:   lesson.isFree   ?? lesson.is_free   ?? false,
+  })
   const [busy, setBusy] = useState(false)
   const [err, setErr]   = useState('')
   const set = (k, v) => { setF(p => ({ ...p, [k]: v })); setErr('') }
@@ -47,7 +53,7 @@ function LessonModal({ lesson, onSave, onClose }) {
     if (!f.title.trim()) { setErr('Le titre est obligatoire.'); return }
     setBusy(true)
     try { await onSave(lesson.id, f); onClose() }
-    catch (e) { setErr(e.response?.data?.message || 'Erreur serveur, réessayez.') }
+    catch (e) { setErr(e.message || 'Erreur serveur, réessayez.') }
     finally { setBusy(false) }
   }
 
@@ -90,18 +96,18 @@ function LessonModal({ lesson, onSave, onClose }) {
           {f.type === 'video' && (
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">URL Vidéo</label>
-              <input className={INP} value={f.video_url} onChange={e => set('video_url', e.target.value)} placeholder="https://youtube.com/watch?v=..." />
+              <input className={INP} value={f.videoUrl} onChange={e => set('videoUrl', e.target.value)} placeholder="https://youtube.com/watch?v=..." />
             </div>
           )}
           {f.type === 'pdf' && (
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">URL PDF</label>
-              <input className={INP} value={f.pdf_url} onChange={e => set('pdf_url', e.target.value)} placeholder="https://drive.google.com/..." />
+              <input className={INP} value={f.pdfUrl} onChange={e => set('pdfUrl', e.target.value)} placeholder="https://drive.google.com/..." />
             </div>
           )}
 
           <label className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 cursor-pointer select-none">
-            <input type="checkbox" className="w-4 h-4 accent-cyan-500" checked={f.is_free} onChange={e => set('is_free', e.target.checked)} />
+            <input type="checkbox" className="w-4 h-4 accent-cyan-500" checked={f.isFree} onChange={e => set('isFree', e.target.checked)} />
             <div>
               <p className="text-sm font-medium text-slate-700">Leçon gratuite</p>
               <p className="text-xs text-slate-400">Accessible sans inscription au cours</p>
@@ -141,7 +147,6 @@ function SectionCard({ section, index, courseId, onRename, onDelete, onAddLesson
 
   return (
     <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
-      {/* Header section */}
       <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
         <span className="w-7 h-7 rounded-lg bg-cyan-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
           {index + 1}
@@ -167,12 +172,11 @@ function SectionCard({ section, index, courseId, onRename, onDelete, onAddLesson
         </button>
       </div>
 
-      {/* Corps section */}
       {open && (
         <div className="p-4 space-y-2">
           {lessons.length === 0 && (
             <p className="text-center text-slate-400 text-xs py-4 italic">
-              Aucune leçon dans cette section. Cliquez sur "Ajouter une leçon" ci-dessous.
+              Aucune leçon. Cliquez sur "Ajouter une leçon" ci-dessous.
             </p>
           )}
 
@@ -187,7 +191,7 @@ function SectionCard({ section, index, courseId, onRename, onDelete, onAddLesson
                 <p className="text-xs text-slate-400">
                   {lesson.type === 'video' ? 'Vidéo' : lesson.type === 'pdf' ? 'PDF' : 'Quiz'}
                   {lesson.duration > 0 && ` · ${Math.round(lesson.duration / 60)} min`}
-                  {lesson.is_free && ' · 🆓 Gratuit'}
+                  {lesson.isFree && ' · 🆓 Gratuit'}
                 </p>
               </div>
               <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -228,15 +232,12 @@ const LANGS  = ['Français', 'Wolof', 'Anglais']
 export default function CreateCoursePage() {
   const { id: editId } = useParams()
   const navigate       = useNavigate()
-  const { refresh }    = useRefresh()
 
-  /* ── État ── */
   const [tab, setTab]         = useState('info')
   const [courseId, setCourseId] = useState(editId || null)
   const [toast, setToast]     = useState(null)
   const [modalLesson, setModalLesson] = useState(null)
 
-  /* ── Onglet Info ── */
   const [info, setInfo]       = useState({ title: '', description: '', category_id: '', level: 'Débutant', language: 'Français', price: '' })
   const [thumb, setThumb]     = useState(null)
   const [thumbUrl, setThumbUrl] = useState(null)
@@ -244,51 +245,50 @@ export default function CreateCoursePage() {
   const [infoErr, setInfoErr] = useState({})
   const [savingInfo, setSavingInfo] = useState(false)
 
-  /* ── Onglet Contenu ── */
   const [sections, setSections] = useState([])
   const [loadingSec, setLoadingSec] = useState(false)
   const [addingSec, setAddingSec]   = useState(false)
-  const [contentLoaded, setContentLoaded] = useState(false) // reset quand on change de cours
 
-  /* ── Onglet Tarification ── */
   const [price, setPrice]         = useState('')
   const [savingPrice, setSavingPrice] = useState(false)
-
-  /* ── Onglet Publication ── */
   const [submitting, setSubmitting] = useState(false)
 
-  const ok = (msg) => setToast({ msg, type: 'ok' })
+  const ok  = (msg) => setToast({ msg, type: 'ok' })
   const err = (msg) => setToast({ msg, type: 'error' })
 
-  /* ── Init ── */
+  /* ── Init catégories ── */
   useEffect(() => {
-    instructorService.getCategories().then(r => setCats(r.data || []))
+    instructorService.getCategories()
+      .then(data => setCats(Array.isArray(data) ? data : []))
   }, [])
 
+  /* ── Init cours existant ── */
   useEffect(() => {
     if (!editId) return
-    instructorService.getCourse(editId).then(r => {
-      const c = r.data
-      setInfo({ title: c.title || '', description: c.description || '', category_id: String(c.category_id || ''), level: c.level || 'Débutant', language: c.language || 'Français', price: c.price || '' })
+    instructorService.getCourse(editId).then(c => {
+      setInfo({
+        title: c.title || '', description: c.description || '',
+        category_id: c.categoryId || '', level: c.level || 'Débutant',
+        language: c.language || 'Français', price: c.price || '',
+      })
       setPrice(String(c.price || ''))
-      if (c.thumbnail) setThumbUrl(`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${c.thumbnail}`)
+      if (c.thumbnail) setThumbUrl(c.thumbnail)
     })
   }, [editId])
 
-  /* ── Charger sections à chaque ouverture de l'onglet Contenu ── */
+  /* ── Charger sections ── */
   useEffect(() => {
     if (tab !== 'content' || !courseId) return
     setLoadingSec(true)
     instructorService.getSections(courseId)
-      .then(r => setSections(Array.isArray(r.data) ? r.data : []))
+      .then(data => setSections(Array.isArray(data) ? data : []))
       .catch(() => err('Erreur chargement sections.'))
       .finally(() => setLoadingSec(false))
   }, [tab, courseId])
 
-  /* ── Navigation onglets ── */
   const openTab = (id) => {
     if (id !== 'info' && !courseId) {
-      alert('Sauvegardez d\'abord les informations du cours (onglet Informations).')
+      alert('Sauvegardez d\'abord les informations du cours.')
       return
     }
     setTab(id)
@@ -299,7 +299,6 @@ export default function CreateCoursePage() {
      ONGLET 1 : INFOS
   ══════════════════════════════════════════════════════════ */
   const saveInfo = async () => {
-    // Validation locale
     const e = {}
     if (!info.title.trim())       e.title = 'Titre obligatoire'
     if (!info.description.trim()) e.desc  = 'Description obligatoire'
@@ -309,81 +308,77 @@ export default function CreateCoursePage() {
     setInfoErr({})
     setSavingInfo(true)
 
+    const cat = cats.find(c => c.id === info.category_id)
     const data = {
-      title:       info.title.trim(),
-      description: info.description.trim(),
-      category_id: info.category_id,
-      level:       info.level,
-      language:    info.language,
-      price:       Number(info.price) || 0,
+      title:        info.title.trim(),
+      description:  info.description.trim(),
+      categoryId:   info.category_id,
+      categoryName: cat?.name || '',
+      level:        info.level,
+      language:     info.language,
+      price:        Number(info.price) || 0,
     }
 
     try {
       if (courseId) {
-        // Mise à jour
         await instructorService.updateCourse(courseId, data)
+        // Upload thumbnail si une nouvelle image a été sélectionnée
+        if (thumb) {
+          try {
+            await instructorService.uploadThumbnail(courseId, thumb)
+            setThumb(null) // reset après upload réussi
+          } catch (ex) {
+            err('Image non uploadée : ' + (ex.message || 'vérifiez votre connexion.'))
+            setSavingInfo(false)
+            return
+          }
+        }
         ok('Informations mises à jour !')
       } else {
-        // Création
-        const response = await instructorService.createCourse(data)
-        const newId = response.data.id
+        const course = await instructorService.createCourse(data)
+        const newId = course.id
 
-        if (!newId) {
-          err('Réponse inattendue du serveur. Réessayez.')
-          setSavingInfo(false)
-          return
-        }
+        if (!newId) { err('Réponse inattendue. Réessayez.'); setSavingInfo(false); return }
 
-        // Upload thumbnail si présent
         if (thumb) {
-          try { await instructorService.uploadThumbnail(newId, thumb) } catch {}
+          try {
+            await instructorService.uploadThumbnail(newId, thumb)
+            setThumb(null)
+          } catch (ex) {
+            err('Cours créé mais image non uploadée : ' + (ex.message || 'vérifiez les règles Firebase Storage.'))
+          }
         }
 
-        // Mettre à jour l'état et naviguer vers l'onglet contenu
         setCourseId(newId)
         setPrice(String(data.price))
         setTab('content')
         window.scrollTo({ top: 0, behavior: 'smooth' })
-        ok(`Cours #${newId} créé ! Ajoutez maintenant vos sections et leçons.`)
-        refresh()
+        ok('Cours créé ! Ajoutez maintenant vos sections et leçons.')
       }
     } catch (ex) {
-      const status = ex.response?.status
-      const apiErrs = ex.response?.data?.errors
-
-      if (status === 401) {
-        err('Session expirée. Reconnectez-vous.')
-        return
-      }
-
-      if (apiErrs) {
-        const mapped = {}
-        Object.entries(apiErrs).forEach(([k, v]) => { mapped[k] = Array.isArray(v) ? v[0] : v })
-        setInfoErr(mapped)
-        err('Corrigez les erreurs dans le formulaire.')
-      } else {
-        err(`Erreur ${status || ''}: ${ex.response?.data?.message || ex.message || 'Inconnue'}`)
-      }
+      err(ex.message || 'Erreur serveur.')
     } finally {
       setSavingInfo(false)
     }
   }
 
   /* ══════════════════════════════════════════════════════════
-     ONGLET 2 : CONTENU (sections / leçons)
+     ONGLET 2 : CONTENU
   ══════════════════════════════════════════════════════════ */
   const addSection = async () => {
     setAddingSec(true)
     try {
-      const r = await instructorService.createSection(courseId, { title: `Section ${sections.length + 1}`, order: sections.length })
-      setSections(p => [...p, { ...r.data, lessons: [] }])
+      const section = await instructorService.createSection(courseId, {
+        title: `Section ${sections.length + 1}`, order: sections.length,
+      })
+      setSections(p => [...p, { ...section, lessons: [] }])
       ok('Section ajoutée !')
-    } catch (ex) { err(ex.response?.data?.message || 'Erreur création section.') }
+    } catch (ex) { err(ex.message || 'Erreur création section.') }
     finally { setAddingSec(false) }
   }
 
   const renameSection = async (id, title) => {
-    await instructorService.updateSection(id, { title })
+    await instructorService.updateSection(id, { title }, courseId)
     setSections(p => p.map(s => s.id === id ? { ...s, title } : s))
     ok('Section renommée.')
   }
@@ -391,7 +386,7 @@ export default function CreateCoursePage() {
   const deleteSection = async (id) => {
     if (!window.confirm('Supprimer cette section et toutes ses leçons ?')) return
     try {
-      await instructorService.deleteSection(id)
+      await instructorService.deleteSection(id, courseId)
       setSections(p => p.filter(s => s.id !== id))
       ok('Section supprimée.')
     } catch { err('Erreur suppression section.') }
@@ -399,23 +394,31 @@ export default function CreateCoursePage() {
 
   const addLesson = async (sectionId) => {
     try {
-      const r = await instructorService.createLesson(courseId, { section_id: sectionId, title: 'Nouvelle leçon', type: 'video', is_free: false, order: 0 })
-      setSections(p => p.map(s => s.id === sectionId ? { ...s, lessons: [...(s.lessons || []), r.data] } : s))
-      setModalLesson({ lesson: r.data, sectionId })
-    } catch (ex) { err(ex.response?.data?.message || 'Erreur création leçon.') }
+      const lesson = await instructorService.createLesson(courseId, {
+        section_id: sectionId, title: 'Nouvelle leçon', type: 'video', is_free: false, order: 0,
+      })
+      setSections(p => p.map(s => s.id === sectionId ? { ...s, lessons: [...(s.lessons || []), lesson] } : s))
+      setModalLesson({ lesson, sectionId })
+    } catch (ex) { err(ex.message || 'Erreur création leçon.') }
   }
 
-  const saveLesson = async (lessonId, data) => {
-    const r = await instructorService.updateLesson(lessonId, data)
-    setSections(p => p.map(s => ({ ...s, lessons: (s.lessons || []).map(l => l.id === lessonId ? { ...l, ...r.data } : l) })))
+  const saveLesson = async (lessonId, sectionId, data) => {
+    const updated = await instructorService.updateLesson(lessonId, data, sectionId, courseId)
+    setSections(p => p.map(s => ({
+      ...s,
+      lessons: (s.lessons || []).map(l => l.id === lessonId ? { ...l, ...updated } : l),
+    })))
     ok('Leçon enregistrée !')
   }
 
   const deleteLesson = async (sectionId, lessonId) => {
     if (!window.confirm('Supprimer cette leçon ?')) return
     try {
-      await instructorService.deleteLesson(lessonId)
-      setSections(p => p.map(s => s.id === sectionId ? { ...s, lessons: (s.lessons || []).filter(l => l.id !== lessonId) } : s))
+      await instructorService.deleteLesson(lessonId, sectionId, courseId)
+      setSections(p => p.map(s => s.id === sectionId
+        ? { ...s, lessons: (s.lessons || []).filter(l => l.id !== lessonId) }
+        : s
+      ))
     } catch { err('Erreur suppression leçon.') }
   }
 
@@ -427,7 +430,6 @@ export default function CreateCoursePage() {
     try {
       await instructorService.updateCourse(courseId, { price: Number(price) || 0 })
       ok('Prix enregistré !')
-      refresh()
     } catch { err('Erreur sauvegarde prix.') }
     finally { setSavingPrice(false) }
   }
@@ -440,31 +442,25 @@ export default function CreateCoursePage() {
     try {
       await instructorService.submitCourse(courseId)
       ok('Cours soumis pour validation ! Redirection...')
-      refresh()
       setTimeout(() => navigate('/instructor/courses'), 2000)
-    } catch (ex) { err(ex.response?.data?.message || 'Erreur soumission.') }
+    } catch (ex) { err(ex.message || 'Erreur soumission.') }
     finally { setSubmitting(false) }
   }
 
-  /* ══════════════════════════════════════════════════════════
-     RENDU
-  ══════════════════════════════════════════════════════════ */
   const totalLessons = sections.reduce((n, s) => n + (s.lessons?.length || 0), 0)
 
   return (
     <div className="max-w-4xl space-y-0">
-      {/* Toast */}
       <AnimatePresence>
         {toast && <Toast key="t" msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
       </AnimatePresence>
 
-      {/* Modal leçon */}
       <AnimatePresence>
         {modalLesson && (
           <LessonModal
             key="modal"
             lesson={modalLesson.lesson}
-            onSave={saveLesson}
+            onSave={(lessonId, data) => saveLesson(lessonId, modalLesson.sectionId, data)}
             onClose={() => setModalLesson(null)}
           />
         )}
@@ -480,7 +476,7 @@ export default function CreateCoursePage() {
         </div>
         {courseId && (
           <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-full font-medium">
-            ✓ Cours #{courseId} — brouillon
+            ✓ Cours créé — brouillon
           </span>
         )}
       </div>
@@ -496,7 +492,6 @@ export default function CreateCoursePage() {
               type="button"
               onClick={() => openTab(t.id)}
               disabled={locked}
-              title={locked ? 'Sauvegardez d\'abord les informations' : t.label}
               className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-semibold border-b-2 transition-all ${
                 current
                   ? 'border-cyan-500 text-cyan-600 bg-cyan-50'
@@ -509,28 +504,20 @@ export default function CreateCoursePage() {
                 {t.icon}
               </span>
               <span className="hidden sm:inline">{t.label}</span>
-              {!locked && !current && courseId && (
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              )}
             </button>
           )
         })}
       </div>
 
-      {/* ════════════════════════════════════════════════════
-          CONTENU DES ONGLETS
-      ════════════════════════════════════════════════════ */}
-
-      {/* ─── ONGLET INFORMATIONS ─── */}
+      {/* ── ONGLET INFORMATIONS ── */}
       {tab === 'info' && (
         <div className="bg-white rounded-b-2xl border border-t-0 border-slate-200 p-6 space-y-5">
           {courseId && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-blue-800 text-sm flex items-center gap-2">
-              ℹ️ Cours déjà créé — vous modifiez les informations du cours <strong>#{courseId}</strong>.
+              ℹ️ Vous modifiez les informations du cours déjà créé.
             </div>
           )}
 
-          {/* Titre */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Titre <span className="text-red-500">*</span>
@@ -544,7 +531,6 @@ export default function CreateCoursePage() {
             {infoErr.title && <p className="text-red-500 text-xs mt-1">⚠️ {infoErr.title}</p>}
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">
               Description <span className="text-red-500">*</span>
@@ -552,14 +538,13 @@ export default function CreateCoursePage() {
             <textarea
               className={`${INP} resize-none ${infoErr.desc ? 'border-red-400 bg-red-50' : ''}`}
               rows={4}
-              placeholder="Décrivez ce que les apprenants vont apprendre dans ce cours..."
+              placeholder="Décrivez ce que les apprenants vont apprendre..."
               value={info.description}
               onChange={e => { setInfo(p => ({ ...p, description: e.target.value })); setInfoErr(p => ({ ...p, desc: '' })) }}
             />
             {infoErr.desc && <p className="text-red-500 text-xs mt-1">⚠️ {infoErr.desc}</p>}
           </div>
 
-          {/* Catégorie / Niveau / Langue */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -589,7 +574,6 @@ export default function CreateCoursePage() {
             </div>
           </div>
 
-          {/* Image */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-1.5">Image de couverture</label>
             <label className="flex flex-col items-center justify-center h-36 border-2 border-dashed border-slate-200 rounded-xl cursor-pointer hover:border-cyan-400 hover:bg-cyan-50 transition-all overflow-hidden group">
@@ -607,7 +591,6 @@ export default function CreateCoursePage() {
             </label>
           </div>
 
-          {/* Bouton save */}
           <button type="button" onClick={saveInfo} disabled={savingInfo} className={BTNP + ' w-full justify-center py-3.5 text-base'}>
             {savingInfo
               ? <><FaSpinner className="animate-spin" /> Sauvegarde en cours...</>
@@ -619,7 +602,7 @@ export default function CreateCoursePage() {
         </div>
       )}
 
-      {/* ─── ONGLET CONTENU ─── */}
+      {/* ── ONGLET CONTENU ── */}
       {tab === 'content' && (
         <div className="bg-white rounded-b-2xl border border-t-0 border-slate-200 p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -668,7 +651,7 @@ export default function CreateCoursePage() {
         </div>
       )}
 
-      {/* ─── ONGLET TARIFICATION ─── */}
+      {/* ── ONGLET TARIFICATION ── */}
       {tab === 'price' && (
         <div className="bg-white rounded-b-2xl border border-t-0 border-slate-200 p-6 space-y-6">
           <div>
@@ -687,7 +670,6 @@ export default function CreateCoursePage() {
             <p className="text-xs text-slate-400 mt-1.5">Entrez 0 pour un cours entièrement gratuit</p>
           </div>
 
-          {/* Grille de prix */}
           <div>
             <p className="text-sm font-semibold text-slate-600 mb-3">Suggestions :</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -715,7 +697,7 @@ export default function CreateCoursePage() {
         </div>
       )}
 
-      {/* ─── ONGLET PUBLICATION ─── */}
+      {/* ── ONGLET PUBLICATION ── */}
       {tab === 'publish' && (
         <div className="bg-white rounded-b-2xl border border-t-0 border-slate-200 p-6 space-y-6">
           <div>
@@ -723,7 +705,6 @@ export default function CreateCoursePage() {
             <p className="text-slate-500 text-sm">Soumettez votre cours pour validation par l'équipe XamXam</p>
           </div>
 
-          {/* Récapitulatif */}
           <div className="bg-slate-50 rounded-2xl p-5 grid grid-cols-2 gap-4">
             {[
               ['Titre',       info.title || '—'],
@@ -745,7 +726,6 @@ export default function CreateCoursePage() {
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
             ⏱️ Après soumission, votre cours sera examiné sous <strong>24 à 48h</strong>.
-            Il sera visible par les apprenants une fois approuvé.
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">

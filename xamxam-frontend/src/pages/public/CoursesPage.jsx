@@ -14,7 +14,7 @@ const GRADIENTS = ['from-cyan-500 to-blue-600','from-green-500 to-teal-600','fro
 const LEVELS = ['Débutant','Intermédiaire','Avancé']
 
 export default function CoursesPage() {
-  const [courses, setCourses]         = useState([])
+  const [allCourses, setAllCourses]   = useState([])
   const [categories, setCategories]   = useState([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
@@ -23,31 +23,35 @@ export default function CoursesPage() {
   const [sort, setSort]               = useState('newest')
   const debouncedSearch               = useDebounce(search, 400)
 
-  const load = useCallback((params = {}) => {
+  const load = useCallback(() => {
     setLoading(true)
-    studentService.getCourses({
-      search: debouncedSearch,
-      category: activeCategory,
-      level: activeLevel,
-      sort,
-      per_page: 24,
-      ...params,
-    })
-      .then(r => setCourses(r.data.data ?? r.data))
+    studentService.getCourses({ level: activeLevel })
+      .then(data => setAllCourses(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false))
-  }, [debouncedSearch, activeCategory, activeLevel, sort])
+  }, [activeLevel])
 
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
-    studentService.getCategories().then(r => setCategories(r.data ?? []))
+    studentService.getCategories()
+      .then(data => setCategories(Array.isArray(data) ? data : []))
   }, [])
 
-  const handleCategory = (slug) => {
-    const val = activeCategory === slug ? '' : slug
-    setActiveCategory(val)
-    load({ category: val })
-  }
+  // Client-side filtering
+  const courses = allCourses
+    .filter(c => {
+      const q = debouncedSearch.toLowerCase()
+      const matchSearch = !q ||
+        (c.title ?? '').toLowerCase().includes(q) ||
+        (c.instructorName ?? '').toLowerCase().includes(q) ||
+        (c.categoryName ?? '').toLowerCase().includes(q)
+      const matchCategory = !activeCategory || c.categoryId === activeCategory
+      return matchSearch && matchCategory
+    })
+    .sort((a, b) => sort === 'popular'
+      ? (b.enrollmentsCount ?? 0) - (a.enrollmentsCount ?? 0)
+      : 0
+    )
 
   return (
     <div className="pt-20 min-h-screen bg-slate-50">
@@ -76,13 +80,13 @@ export default function CoursesPage() {
         <div className="flex flex-col gap-4 mb-8">
           {/* Catégories */}
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => handleCategory('')}
+            <button onClick={() => setActiveCategory('')}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${!activeCategory ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' : 'bg-white text-slate-600 border border-slate-200 hover:border-cyan-300'}`}>
               Tous
             </button>
             {categories.map(cat => (
-              <button key={cat.id} onClick={() => handleCategory(cat.slug)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeCategory === cat.slug ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' : 'bg-white text-slate-600 border border-slate-200 hover:border-cyan-300'}`}>
+              <button key={cat.id} onClick={() => setActiveCategory(activeCategory === cat.id ? '' : cat.id)}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeCategory === cat.id ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30' : 'bg-white text-slate-600 border border-slate-200 hover:border-cyan-300'}`}>
                 {cat.icon} {cat.name}
               </button>
             ))}
@@ -92,14 +96,14 @@ export default function CoursesPage() {
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-xs text-slate-400 font-medium">Niveau :</span>
             {LEVELS.map(l => (
-              <button key={l} onClick={() => { const v = activeLevel === l ? '' : l; setActiveLevel(v); load({ level: v }) }}
+              <button key={l} onClick={() => setActiveLevel(activeLevel === l ? '' : l)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeLevel === l ? 'bg-blue-500 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300'}`}>
                 {l}
               </button>
             ))}
             <div className="ml-auto flex items-center gap-2">
               <span className="text-xs text-slate-400">Trier :</span>
-              <select value={sort} onChange={e => { setSort(e.target.value); load({ sort: e.target.value }) }}
+              <select value={sort} onChange={e => setSort(e.target.value)}
                 className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500">
                 <option value="newest">Plus récents</option>
                 <option value="popular">Plus populaires</option>
@@ -122,7 +126,6 @@ export default function CoursesPage() {
                     <Skeleton className="h-3 w-20 mb-2" />
                     <Skeleton className="h-4 w-full mb-1" />
                     <Skeleton className="h-3 w-28 mb-3" />
-                    <Skeleton className="h-3 w-32 mb-3" />
                     <div className="flex justify-between items-center pt-2">
                       <Skeleton className="h-5 w-24" />
                       <Skeleton className="h-8 w-16 rounded-lg" />
@@ -137,17 +140,14 @@ export default function CoursesPage() {
                 </div>
               )
             : courses.map((course, i) => {
-                const thumbUrl = course.thumbnail
-                  ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
-                  : null
                 const isFree = !course.price || Number(course.price) === 0
 
                 return (
                   <motion.div key={course.id} custom={i} variants={cardVariants}
                     className="bg-white rounded-2xl overflow-hidden border border-slate-100 card-hover group">
                     <div className={`h-36 bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} flex items-center justify-center relative overflow-hidden`}>
-                      {thumbUrl
-                        ? <img src={thumbUrl} alt={course.title} className="w-full h-full object-cover" />
+                      {course.thumbnail
+                        ? <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
                         : <span className="text-5xl">📚</span>
                       }
                       <div className="absolute top-2 left-2 flex gap-1">
@@ -156,11 +156,11 @@ export default function CoursesPage() {
                       </div>
                     </div>
                     <div className="p-4">
-                      <span className="text-xs text-cyan-600 font-semibold">{course.category?.name ?? '—'}</span>
+                      <span className="text-xs text-cyan-600 font-semibold">{course.categoryName ?? '—'}</span>
                       <h3 className="font-bold text-slate-800 text-sm mt-1 mb-1 group-hover:text-cyan-600 transition-colors line-clamp-2">
                         {course.title}
                       </h3>
-                      <p className="text-slate-400 text-xs mb-2">par {course.instructor?.name ?? '—'}</p>
+                      <p className="text-slate-400 text-xs mb-2">par {course.instructorName ?? '—'}</p>
                       <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
                         {course.rating > 0 && (
                           <span className="flex items-center gap-0.5">
@@ -168,7 +168,7 @@ export default function CoursesPage() {
                           </span>
                         )}
                         <span className="flex items-center gap-0.5">
-                          <FaUsers className="text-slate-400" /> {(course.students_count ?? 0).toLocaleString('fr-FR')}
+                          <FaUsers className="text-slate-400" /> {(course.enrollmentsCount ?? 0).toLocaleString('fr-FR')}
                         </span>
                       </div>
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100">

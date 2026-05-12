@@ -28,7 +28,7 @@ export default function StudentDashboard() {
   useRefreshOnNav(() => {
     setLoading(true)
     studentService.getDashboard()
-      .then(r => setData(r.data))
+      .then(r => setData(r))
       .finally(() => setLoading(false))
   }, [])
 
@@ -92,7 +92,7 @@ export default function StudentDashboard() {
               const course = enrollment.course ?? {}
               const prog   = enrollment.progress ?? 0
               const thumbUrl = course.thumbnail
-                ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
+                ? course.thumbnail
                 : null
               return (
                 <div key={enrollment.id ?? i} className="border border-slate-100 rounded-xl overflow-hidden hover:shadow-md transition-shadow">

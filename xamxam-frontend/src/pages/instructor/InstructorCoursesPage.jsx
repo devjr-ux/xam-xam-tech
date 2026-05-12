@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useRefresh } from '../../context/RefreshContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MdAdd, MdEdit, MdDelete, MdSearch, MdSend } from 'react-icons/md'
 import { FaSpinner } from 'react-icons/fa'
@@ -43,7 +42,6 @@ export default function InstructorCoursesPage() {
     search: debouncedSearch,
     status: statusFilter,
   })
-  const { refresh } = useRefresh()
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type })
@@ -56,7 +54,7 @@ export default function InstructorCoursesPage() {
     try {
       await instructorService.deleteCourse(course.id)
       showToast('Cours supprimé.')
-      refresh()
+      reload()
     } catch (e) {
       showToast(e.response?.data?.message || 'Erreur lors de la suppression.', 'error')
     } finally {
@@ -69,7 +67,7 @@ export default function InstructorCoursesPage() {
     try {
       await instructorService.submitCourse(course.id)
       showToast('Cours soumis pour validation !')
-      refresh()
+      reload()
     } catch (e) {
       showToast(e.response?.data?.message || 'Erreur.', 'error')
     } finally {
@@ -163,9 +161,7 @@ export default function InstructorCoursesPage() {
         <motion.div variants={staggerContainer} className="space-y-3">
           {courses.map((course) => {
             const status = statusMap[course.status] ?? statusMap.draft
-            const thumbUrl = course.thumbnail
-              ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
-              : null
+            const thumbUrl = course.thumbnail || null
 
             return (
               <motion.div key={course.id} variants={fadeInUp}
@@ -185,9 +181,9 @@ export default function InstructorCoursesPage() {
                     <Badge color={status.color}>{status.label}</Badge>
                   </div>
                   <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
-                    <span>👥 {(course.students_count ?? 0).toLocaleString('fr-FR')} apprenants</span>
+                    <span>👥 {(course.enrollmentsCount ?? 0).toLocaleString('fr-FR')} apprenants</span>
                     <span>💰 {Number(course.price ?? 0).toLocaleString('fr-FR')} FCFA</span>
-                    {course.category && <span>📂 {course.category.name}</span>}
+                    {course.categoryName && <span>📂 {course.categoryName}</span>}
                     <span>📊 {course.level}</span>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import CoursesPage from '../pages/public/CoursesPage'
 import CourseDetailPage from '../pages/public/CourseDetailPage'
 import AboutPage from '../pages/public/AboutPage'
 import ContactPage from '../pages/public/ContactPage'
+import VerifyCertificatePage from '../pages/public/VerifyCertificatePage'
 
 // Auth Pages
 import LoginPage from '../pages/auth/LoginPage'
@@ -62,12 +63,26 @@ export default function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
+      {/* ─── Vérification certificat (publique) ─── */}
+      <Route path="/verify" element={<VerifyCertificatePage />} />
+      <Route path="/verify/:id" element={<VerifyCertificatePage />} />
+
       {/* ─── Lecture cours (plein écran) ─── */}
       <Route
         path="/courses/:id/learn"
         element={
           <ProtectedRoute>
             <LearnPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* ─── Quiz (plein écran, sans sidebar) ─── */}
+      <Route
+        path="/student/quizzes/:id"
+        element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <QuizPage />
           </ProtectedRoute>
         }
       />
@@ -132,8 +147,6 @@ export default function AppRouter() {
       >
         <Route index element={<StudentDashboard />} />
         <Route path="courses" element={<StudentCoursesPage />} />
-        <Route path="quizzes/:id" element={<QuizPage />} />
-        <Route path="quizzes" element={<QuizPage />} />
         <Route path="certificates" element={<CertificatesPage />} />
         <Route path="favorites" element={<FavoritesPage />} />
         <Route path="profile" element={<ProfilePage />} />

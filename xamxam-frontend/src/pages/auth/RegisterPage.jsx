@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { FaGraduationCap, FaUser, FaEnvelope, FaLock, FaChalkboardTeacher } from 'react-icons/fa'
+import { FaUser, FaEnvelope, FaLock } from 'react-icons/fa'
 import { useAuth } from '../../context/AuthContext'
-import { authService } from '../../services/authService'
 import Button from '../../components/ui/Button'
+import Logo from '../../components/ui/Logo'
 import { fadeInUp, staggerContainer } from '../../animations/variants'
 
 const roles = [
@@ -16,7 +16,7 @@ export default function RegisterPage() {
   const [form, setForm] = useState({ name: '', email: '', password: '', password_confirmation: '', role: 'student' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
+  const { register } = useAuth()
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -40,11 +40,10 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const { data } = await authService.register(form)
-      login(data.user, data.token)
+      await register({ name: form.name, email: form.email, password: form.password, role: form.role })
       navigate(form.role === 'instructor' ? '/instructor' : '/student')
     } catch (err) {
-      setErrors({ general: err.response?.data?.message || 'Erreur lors de l\'inscription' })
+      setErrors({ general: err.message || 'Erreur lors de l\'inscription' })
     } finally {
       setLoading(false)
     }
@@ -66,15 +65,7 @@ export default function RegisterPage() {
         className="relative w-full max-w-md"
       >
         <motion.div variants={fadeInUp} className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center gap-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center">
-              <FaGraduationCap className="text-white text-2xl" />
-            </div>
-            <span className="text-2xl font-bold text-white">
-              Xam<span className="text-cyan-400">Xam</span>
-              <span className="text-slate-400 text-sm font-normal ml-1">Tech</span>
-            </span>
-          </Link>
+          <Logo to="/" size="lg" />
         </motion.div>
 
         <motion.div variants={fadeInUp} className="glassmorphism rounded-3xl p-8">

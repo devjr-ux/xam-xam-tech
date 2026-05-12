@@ -10,36 +10,47 @@ import ProgressBar from '../../components/ui/ProgressBar'
 import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import { studentService } from '../../services/studentService'
-import api from '../../services/api'
 
 /* ── Lecteur selon le type de leçon ──────────────────────── */
-function LessonPlayer({ lesson, courseId, onComplete }) {
+function LessonPlayer({ lesson, courseId, totalLessons, onComplete }) {
   const [marking, setMarking] = useState(false)
   const navigate = useNavigate()
 
   const handleComplete = async () => {
     setMarking(true)
     try {
-      await api.post(`/courses/${courseId}/progress`, { lesson_id: lesson.id })
+      await studentService.markLessonComplete(lesson.id, courseId, totalLessons)
       onComplete(lesson.id)
     } catch {}
     finally { setMarking(false) }
   }
 
   if (lesson.type === 'quiz') {
+    const isDone = false // géré par le parent via completedIds
     return (
       <div className="bg-slate-800 rounded-2xl aspect-video flex items-center justify-center">
         <div className="text-center text-white space-y-4">
           <div className="text-7xl">📝</div>
           <p className="text-xl font-bold">{lesson.title}</p>
-          <p className="text-slate-400 text-sm">Quiz interactif · Nécessite de compléter les leçons précédentes</p>
-          <button
-            type="button"
-            onClick={() => navigate(`/student/quizzes/${lesson.id}`)}
-            className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-colors"
-          >
-            Commencer le Quiz
-          </button>
+          <p className="text-slate-400 text-sm">Quiz interactif — complétez-le pour valider cette leçon</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => navigate(`/student/quizzes/${lesson.id}`)}
+              className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold transition-colors"
+            >
+              📝 Commencer le Quiz
+            </button>
+            <button
+              type="button"
+              onClick={handleComplete}
+              disabled={marking}
+              className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold text-sm transition-colors disabled:opacity-50"
+            >
+              {marking ? <FaSpinner className="animate-spin inline mr-2" /> : null}
+              ✓ Marquer complété
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -51,8 +62,8 @@ function LessonPlayer({ lesson, courseId, onComplete }) {
         <div className="text-center text-white space-y-4">
           <div className="text-7xl">📄</div>
           <p className="text-xl font-bold">{lesson.title}</p>
-          {lesson.pdf_url ? (
-            <a href={lesson.pdf_url} target="_blank" rel="noreferrer"
+          {lesson.pdfUrl ? (
+            <a href={lesson.pdfUrl} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold transition-colors">
               <FaFilePdf /> Ouvrir le PDF
             </a>
@@ -70,7 +81,7 @@ function LessonPlayer({ lesson, courseId, onComplete }) {
   }
 
   // Video
-  const isYoutube = lesson.video_url?.includes('youtube.com') || lesson.video_url?.includes('youtu.be')
+  const isYoutube = lesson.videoUrl?.includes('youtube.com') || lesson.videoUrl?.includes('youtu.be')
   const getYoutubeEmbed = (url) => {
     const id = url?.match(/(?:v=|youtu\.be\/)([^&\n?#]+)/)?.[1]
     return id ? `https://www.youtube.com/embed/${id}?autoplay=1` : null
@@ -78,18 +89,17 @@ function LessonPlayer({ lesson, courseId, onComplete }) {
 
   return (
     <div className="bg-black rounded-2xl overflow-hidden aspect-video">
-      {lesson.video_url && isYoutube ? (
+      {lesson.videoUrl && isYoutube ? (
         <iframe
-          src={getYoutubeEmbed(lesson.video_url)}
+          src={getYoutubeEmbed(lesson.videoUrl)}
           className="w-full h-full"
           allowFullScreen
           allow="autoplay; encrypted-media"
-          onLoad={() => {}}
         />
-      ) : lesson.video_url ? (
+      ) : lesson.videoUrl ? (
         <video
           controls
-          src={lesson.video_url}
+          src={lesson.videoUrl}
           className="w-full h-full"
           onEnded={handleComplete}
         />
@@ -114,50 +124,41 @@ function LessonPlayer({ lesson, courseId, onComplete }) {
 export default function LearnPage() {
   const { id: courseId } = useParams()
 
-  const [course, setCourse]           = useState(null)
-  const [enrollment, setEnrollment]   = useState(null)
+  const [course, setCourse]             = useState(null)
   const [accessDenied, setAccessDenied] = useState(false)
+  const [accessInfo, setAccessInfo]     = useState(null)
   const [completedIds, setCompletedIds] = useState(new Set())
   const [activeLesson, setActiveLesson] = useState(null)
   const [loading, setLoading]         = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [openSections, setOpenSections] = useState([])
 
-  /* ── Charger cours + vérifier accès + progression ── */
   useEffect(() => {
     if (!courseId) return
     setLoading(true)
 
     Promise.all([
       studentService.getCourse(courseId),
-      api.get(`/courses/${courseId}/access`).catch(() => ({ data: { has_access: false } })),
-      api.get(`/courses/${courseId}/progress`).catch(() => ({ data: null })),
-    ]).then(([courseRes, accessRes, progressRes]) => {
-      // Vérifier l'accès
-      if (!accessRes.data?.has_access) {
+      studentService.checkAccess(courseId).catch(() => ({ hasAccess: false })),
+      studentService.getProgress(courseId).catch(() => null),
+    ]).then(([courseData, access, progress]) => {
+      if (!access?.hasAccess) {
         setAccessDenied(true)
+        setAccessInfo(access)
         setLoading(false)
         return
       }
 
-      const c = courseRes.data
-      setCourse(c)
+      setCourse(courseData)
 
-      // Leçons complétées
-      const prog = progressRes.data
-      if (prog?.enrollment) {
-        setEnrollment(prog.enrollment)
-      }
-      // Ids complétés depuis lesson_completions (si dispo)
-      if (prog?.completed_lessons !== undefined) {
-        // on reconstruit approximativement à partir du nombre
-        // → on se fiera à l'état local pour marquer
+      // Leçons complétées depuis Firestore
+      if (progress?.completedIds) {
+        setCompletedIds(new Set(progress.completedIds))
       }
 
-      // Ouvrir la première section, sélectionner première leçon
-      if (c?.sections?.length > 0) {
-        setOpenSections([c.sections[0].id])
-        const firstLesson = c.sections[0].lessons?.[0]
+      if (courseData?.sections?.length > 0) {
+        setOpenSections([courseData.sections[0].id])
+        const firstLesson = courseData.sections[0].lessons?.[0]
         if (firstLesson) setActiveLesson(firstLesson)
       }
     }).finally(() => setLoading(false))
@@ -166,7 +167,7 @@ export default function LearnPage() {
   const allLessons = course?.sections?.flatMap(s => s.lessons || []) ?? []
   const progress   = allLessons.length > 0
     ? Math.round((completedIds.size / allLessons.length) * 100)
-    : (enrollment?.progress ?? 0)
+    : 0
 
   const toggleSection = (id) =>
     setOpenSections(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id])
@@ -189,28 +190,41 @@ export default function LearnPage() {
     </div>
   )
 
-  // Accès refusé — pas inscrit ou paiement en attente
-  if (accessDenied) return (
-    <div className="flex h-screen bg-slate-900 items-center justify-center p-4">
-      <div className="text-center max-w-sm">
-        <div className="text-6xl mb-4">🔒</div>
-        <h2 className="text-2xl font-bold text-white mb-3">Accès non autorisé</h2>
-        <p className="text-slate-400 text-sm mb-6">
-          Vous devez être inscrit à ce cours et avoir effectué le paiement pour accéder au contenu.
-        </p>
-        <div className="flex flex-col gap-3">
-          <Link to={`/courses/${courseId}`}
-            className="py-3 px-6 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white font-bold transition-colors text-center">
-            Voir le cours et s'inscrire
-          </Link>
-          <Link to="/courses"
-            className="py-3 px-6 rounded-xl border border-white/20 text-slate-300 hover:bg-white/5 transition-colors text-center">
-            Explorer les cours
-          </Link>
+  if (accessDenied) {
+    const needsPayment = accessInfo?.enrolled && accessInfo?.paymentStatus === 'pending'
+    return (
+      <div className="flex h-screen bg-slate-900 items-center justify-center p-4">
+        <div className="text-center max-w-sm">
+          <div className="text-6xl mb-4">{needsPayment ? '💳' : '🔒'}</div>
+          <h2 className="text-2xl font-bold text-white mb-3">
+            {needsPayment ? 'Paiement requis' : 'Accès non autorisé'}
+          </h2>
+          <p className="text-slate-400 text-sm mb-6">
+            {needsPayment
+              ? 'Vous êtes inscrit à ce cours mais le paiement n\'a pas encore été finalisé.'
+              : 'Vous devez vous inscrire à ce cours pour accéder au contenu.'}
+          </p>
+          <div className="flex flex-col gap-3">
+            {needsPayment ? (
+              <Link to={`/courses/${courseId}/payment`}
+                className="py-3 px-6 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white font-bold transition-colors text-center">
+                Finaliser le paiement
+              </Link>
+            ) : (
+              <Link to={`/courses/${courseId}`}
+                className="py-3 px-6 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-white font-bold transition-colors text-center">
+                Voir le cours et s'inscrire
+              </Link>
+            )}
+            <Link to="/student/courses"
+              className="py-3 px-6 rounded-xl border border-white/20 text-slate-300 hover:bg-white/5 transition-colors text-center">
+              Mes cours
+            </Link>
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   if (!course) return (
     <div className="flex h-screen bg-slate-900 items-center justify-center text-white">
@@ -347,7 +361,12 @@ export default function LearnPage() {
         <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           {activeLesson ? (
             <div className="max-w-4xl mx-auto space-y-5">
-              <LessonPlayer lesson={activeLesson} courseId={courseId} onComplete={markComplete} />
+              <LessonPlayer
+                lesson={activeLesson}
+                courseId={courseId}
+                totalLessons={allLessons.length}
+                onComplete={markComplete}
+              />
 
               {/* Infos leçon */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -362,17 +381,17 @@ export default function LearnPage() {
                         <span className="text-slate-400 text-sm">{Math.round(activeLesson.duration / 60)} min</span>
                       </>
                     )}
-                    {activeLesson.is_free && <Badge color="green">Gratuit</Badge>}
+                    {activeLesson.isFree && <Badge color="green">Gratuit</Badge>}
                     {completedIds.has(activeLesson.id) && <Badge color="green">✓ Complété</Badge>}
                   </div>
                 </div>
                 {!completedIds.has(activeLesson.id) && activeLesson.type !== 'quiz' && (
                   <Button
                     icon={<FaCheckCircle />}
-                    onClick={() => {
-                      api.post(`/courses/${courseId}/progress`, { lesson_id: activeLesson.id })
-                        .then(() => markComplete(activeLesson.id))
-                        .catch(() => markComplete(activeLesson.id))
+                    onClick={async () => {
+                      await studentService.markLessonComplete(activeLesson.id, courseId, allLessons.length)
+                        .catch(() => {})
+                      markComplete(activeLesson.id)
                     }}
                   >
                     Marquer complété

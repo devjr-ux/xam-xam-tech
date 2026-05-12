@@ -12,11 +12,10 @@ import Button from '../../components/ui/Button'
 import Skeleton from '../../components/ui/Skeleton'
 import { useAuth } from '../../context/AuthContext'
 import { studentService } from '../../services/studentService'
-import api from '../../services/api'
 
 /* ── Ligne de leçon ──────────────────────────────────────── */
 function LessonRow({ lesson, enrolled }) {
-  const locked = !enrolled && !lesson.is_free
+  const locked = !enrolled && !lesson.isFree
   const icons  = {
     video: <FaPlayCircle className="text-cyan-500" />,
     quiz:  <MdQuiz className="text-purple-500 text-base" />,
@@ -30,7 +29,7 @@ function LessonRow({ lesson, enrolled }) {
     }`}>
       <span className="text-base flex-shrink-0">{icons[lesson.type] ?? icons.video}</span>
       <span className="flex-1 text-sm text-slate-700">{lesson.title}</span>
-      {lesson.is_free && <Badge color="green">Gratuit</Badge>}
+      {lesson.isFree && <Badge color="green">Gratuit</Badge>}
       <div className="flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0">
         {locked && <FaLock className="text-slate-300 text-xs" />}
         {mins && <span>{mins}</span>}
@@ -98,22 +97,23 @@ export default function CourseDetailPage() {
   const [favLoading, setFavLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
 
-  /* ── Charger le cours ── */
   useEffect(() => {
     if (!id) return
     setLoading(true)
     setError(null)
 
     studentService.getCourse(id)
-      .then(r => {
-        setCourse(r.data)
-        // Vérifier si l'utilisateur est déjà inscrit et a accès
+      .then(async courseData => {
+        setCourse(courseData)
         if (user) {
-          api.get(`/courses/${id}/access`).then(res => {
-            setEnrolled(res.data.enrolled)
-            setHasAccess(res.data.has_access)
-            if (res.data.enrollment_id) setEnrollmentId(res.data.enrollment_id)
-          }).catch(() => {})
+          const [access, favs] = await Promise.all([
+            studentService.checkAccess(id).catch(() => ({ enrolled: false, hasAccess: false })),
+            studentService.getFavorites().catch(() => []),
+          ])
+          setEnrolled(access.enrolled)
+          setHasAccess(access.hasAccess)
+          if (access.enrollmentId) setEnrollmentId(access.enrollmentId)
+          setFavorited(favs.some(f => f.id === id))
         }
       })
       .catch(() => setError('Impossible de charger ce cours.'))
@@ -125,34 +125,22 @@ export default function CourseDetailPage() {
     if (!user) { navigate('/login'); return }
     setEnrolling(true)
     try {
-      const r = await studentService.enroll(id)
-      const data = r.data
+      const result = await studentService.enroll(id)
 
       setEnrolled(true)
-      setEnrollmentId(data.enrollment?.id)
+      setEnrollmentId(result.enrollment?.id)
 
-      if (data.has_access) {
-        // Cours gratuit OU déjà payé → accès direct
+      if (result.hasAccess) {
         setHasAccess(true)
         navigate(`/courses/${id}/learn`)
       } else {
-        // Cours payant → page de paiement
-        navigate(`/courses/${id}/payment?enrollment=${data.enrollment?.id}`)
+        navigate(`/courses/${id}/payment?enrollment=${result.enrollment?.id}`)
       }
     } catch (e) {
-      const data = e.response?.data
-      if (e.response?.status === 409 && data?.enrollment) {
-        // Déjà inscrit
-        setEnrolled(true)
-        setEnrollmentId(data.enrollment.id)
-        setHasAccess(data.has_access)
-        if (data.has_access) {
-          navigate(`/courses/${id}/learn`)
-        } else {
-          navigate(`/courses/${id}/payment?enrollment=${data.enrollment.id}`)
-        }
+      if (e.message?.includes('already enrolled') || e.message?.includes('isNew')) {
+        navigate(`/courses/${id}/learn`)
       } else {
-        alert(data?.message || 'Erreur inscription.')
+        alert(e.message || 'Erreur inscription.')
       }
     } finally {
       setEnrolling(false)
@@ -164,7 +152,6 @@ export default function CourseDetailPage() {
     if (hasAccess) {
       navigate(`/courses/${id}/learn`)
     } else {
-      // Paiement en attente
       navigate(`/courses/${id}/payment?enrollment=${enrollmentId}`)
     }
   }
@@ -174,17 +161,15 @@ export default function CourseDetailPage() {
     if (!user) { navigate('/login'); return }
     setFavLoading(true)
     try {
-      const r = await api.post(`/courses/${id}/favorite`)
-      setFavorited(r.data.favorited)
+      const r = await studentService.toggleFavorite(id)
+      setFavorited(r.favorited)
     } catch {}
     finally { setFavLoading(false) }
   }
 
   const totalLessons = course?.sections?.reduce((n, s) => n + (s.lessons?.length || 0), 0) ?? 0
   const isFree       = !course?.price || Number(course.price) === 0
-  const thumbUrl     = course?.thumbnail
-    ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
-    : null
+  const thumbUrl     = course?.thumbnail || null
 
   /* ── Loading ── */
   if (loading) return (
@@ -232,8 +217,8 @@ export default function CourseDetailPage() {
             {/* Infos gauche */}
             <motion.div variants={staggerContainer} initial="hidden" animate="visible" className="lg:col-span-2">
               <motion.div variants={fadeInUp} className="flex items-center gap-2 mb-3 flex-wrap">
-                {course.category && <Badge color="cyan">{course.category.name}</Badge>}
-                <Badge color="gray">{course.level}</Badge>
+                {course.categoryName && <Badge color="cyan">{course.categoryName}</Badge>}
+                {course.level && <Badge color="gray">{course.level}</Badge>}
                 {isFree && <Badge color="green">Gratuit</Badge>}
               </motion.div>
 
@@ -253,21 +238,23 @@ export default function CourseDetailPage() {
                   </span>
                 )}
                 <span className="flex items-center gap-1.5">
-                  <FaUsers /> {(course.students_count ?? 0).toLocaleString('fr-FR')} apprenants
+                  <FaUsers /> {(course.enrollmentsCount ?? 0).toLocaleString('fr-FR')} apprenants
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <FaClock /> {course.language}
-                </span>
+                {course.language && (
+                  <span className="flex items-center gap-1.5">
+                    <FaClock /> {course.language}
+                  </span>
+                )}
                 <span>📚 {totalLessons} leçon(s)</span>
               </motion.div>
 
-              {course.instructor && (
+              {course.instructorName && (
                 <motion.div variants={fadeInUp} className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {course.instructor.name?.charAt(0)?.toUpperCase()}
+                    {course.instructorName?.charAt(0)?.toUpperCase()}
                   </div>
                   <span className="text-slate-300 text-sm">
-                    Formateur : <span className="text-white font-medium">{course.instructor.name}</span>
+                    Formateur : <span className="text-white font-medium">{course.instructorName}</span>
                   </span>
                 </motion.div>
               )}
@@ -297,7 +284,6 @@ export default function CourseDetailPage() {
 
                   {/* Bouton principal */}
                   {!enrolled ? (
-                    // Pas encore inscrit
                     <button
                       type="button"
                       onClick={handleEnroll}
@@ -316,7 +302,6 @@ export default function CourseDetailPage() {
                       }
                     </button>
                   ) : hasAccess ? (
-                    // Inscrit + accès débloqué
                     <button
                       type="button"
                       onClick={() => navigate(`/courses/${id}/learn`)}
@@ -325,7 +310,6 @@ export default function CourseDetailPage() {
                       <MdArrowForward /> Continuer le cours
                     </button>
                   ) : (
-                    // Inscrit mais paiement en attente
                     <button
                       type="button"
                       onClick={handleAccess}
@@ -404,9 +388,9 @@ export default function CourseDetailPage() {
                     ['Langue',      course.language],
                     ['Sections',    `${course.sections?.length ?? 0} section(s)`],
                     ['Leçons',      `${totalLessons} leçon(s)`],
-                    ['Apprenants',  (course.students_count ?? 0).toLocaleString('fr-FR')],
+                    ['Apprenants',  (course.enrollmentsCount ?? 0).toLocaleString('fr-FR')],
                     ['Prix',        isFree ? 'Gratuit' : `${Number(course.price).toLocaleString('fr-FR')} FCFA`],
-                  ].map(([k, v]) => (
+                  ].filter(([, v]) => v).map(([k, v]) => (
                     <div key={k} className="flex items-center gap-2.5">
                       <FaCheckCircle className="text-cyan-500 flex-shrink-0" />
                       <span className="text-sm text-slate-600"><strong>{k} :</strong> {v}</span>
@@ -426,7 +410,7 @@ export default function CourseDetailPage() {
                 <span>{totalLessons} leçon(s)</span>
               </motion.div>
 
-              {course.sections?.length === 0 || !course.sections ? (
+              {!course.sections?.length ? (
                 <div className="bg-white rounded-2xl p-8 border border-slate-100 text-center text-slate-400">
                   <p className="text-4xl mb-2">📂</p>
                   <p>Aucun contenu disponible pour l'instant.</p>
@@ -445,17 +429,14 @@ export default function CourseDetailPage() {
           {activeTab === 'instructor' && (
             <motion.div variants={fadeInUp} initial="hidden" animate="visible"
               className="bg-white rounded-2xl p-6 border border-slate-100">
-              {course.instructor ? (
+              {course.instructorName ? (
                 <div className="flex items-start gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
-                    {course.instructor.name?.charAt(0)?.toUpperCase()}
+                    {course.instructorName?.charAt(0)?.toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-slate-800 mb-1">{course.instructor.name}</h3>
-                    <p className="text-slate-500 text-sm mb-2">Formateur sur XamXam Tech</p>
-                    {course.instructor.bio && (
-                      <p className="text-slate-600 text-sm leading-relaxed">{course.instructor.bio}</p>
-                    )}
+                    <h3 className="text-xl font-bold text-slate-800 mb-1">{course.instructorName}</h3>
+                    <p className="text-slate-500 text-sm">Formateur sur XamXam Tech</p>
                   </div>
                 </div>
               ) : (

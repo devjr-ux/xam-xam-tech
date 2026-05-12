@@ -6,7 +6,6 @@ import Badge from '../../components/ui/Badge'
 import Skeleton from '../../components/ui/Skeleton'
 import { adminService } from '../../services/adminService'
 import { useDebounce } from '../../hooks/useDebounce'
-import { useRefresh } from '../../context/RefreshContext'
 
 const statusConfig = {
   published: { color: 'green',  label: 'Publié' },
@@ -26,7 +25,6 @@ function Toast({ message, type, onClose }) {
 }
 
 export default function AdminCoursesPage() {
-  const { refresh }             = useRefresh()
   const [courses, setCourses]   = useState([])
   const [meta, setMeta]         = useState(null)
   const [loading, setLoading]   = useState(true)
@@ -41,7 +39,7 @@ export default function AdminCoursesPage() {
   const load = useCallback((params = {}) => {
     setLoading(true)
     adminService.getCourses({ search: debouncedSearch, status: statusFilter, ...params })
-      .then(r => { setCourses(r.data.data ?? r.data); setMeta(r.data.meta ?? null) })
+      .then(r => { const arr = Array.isArray(r) ? r : (r?.data ?? []); setCourses(arr); setMeta(null) })
       .finally(() => setLoading(false))
   }, [debouncedSearch, statusFilter])
 
@@ -54,18 +52,15 @@ export default function AdminCoursesPage() {
         await adminService.publishCourse(id)
         setCourses(p => p.map(c => c.id === id ? { ...c, status: 'published' } : c))
         showToast('Cours publié !')
-        refresh()
       } else if (action === 'reject') {
         await adminService.rejectCourse(id)
         setCourses(p => p.map(c => c.id === id ? { ...c, status: 'rejected' } : c))
         showToast('Cours refusé.')
-        refresh()
       } else if (action === 'delete') {
         if (!confirm('Supprimer ce cours définitivement ?')) { setActing(null); return }
         await adminService.deleteCourse(id)
         setCourses(p => p.filter(c => c.id !== id))
         showToast('Cours supprimé.')
-        refresh()
       }
     } catch (e) {
       showToast(e.response?.data?.message || 'Erreur.', 'error')
@@ -151,9 +146,7 @@ export default function AdminCoursesPage() {
                   ))
                 : courses.map((course) => {
                     const status = statusConfig[course.status] ?? statusConfig.draft
-                    const thumbUrl = course.thumbnail
-                      ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
-                      : null
+                    const thumbUrl = course.thumbnail || null
                     return (
                       <tr key={course.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-5 py-4">
@@ -163,15 +156,15 @@ export default function AdminCoursesPage() {
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-slate-800 text-sm truncate max-w-[180px]">{course.title}</p>
-                              <p className="text-slate-400 text-xs">{course.category?.name ?? '—'} · {course.level}</p>
+                              <p className="text-slate-400 text-xs">{course.categoryName ?? '—'} · {course.level}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 hidden md:table-cell">
-                          <span className="text-slate-600 text-sm">{course.instructor?.name ?? '—'}</span>
+                          <span className="text-slate-600 text-sm">{course.instructorName ?? '—'}</span>
                         </td>
                         <td className="px-5 py-4 hidden lg:table-cell">
-                          <span className="text-slate-600 text-sm">{(course.students_count ?? 0).toLocaleString('fr-FR')}</span>
+                          <span className="text-slate-600 text-sm">{(course.enrollmentsCount ?? 0).toLocaleString('fr-FR')}</span>
                         </td>
                         <td className="px-5 py-4 hidden lg:table-cell">
                           <span className="text-slate-700 text-sm font-semibold">

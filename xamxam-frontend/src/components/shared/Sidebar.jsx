@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FaGraduationCap, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa'
+import { FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa'
 import { useAuth } from '../../context/AuthContext'
+import Logo from '../ui/Logo'
 
 export default function Sidebar({ menuItems, role }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -25,15 +26,11 @@ export default function Sidebar({ menuItems, role }) {
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/10 ${collapsed ? 'justify-center' : ''}`}>
-        <div className="w-9 h-9 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-          <FaGraduationCap className="text-white text-base" />
-        </div>
-        {!collapsed && (
-          <span className="text-white font-bold text-lg">
-            Xam<span className="text-cyan-400">Xam</span>
-          </span>
-        )}
+      <div className={`flex items-center px-4 py-4 border-b border-white/10 ${collapsed ? 'justify-center' : ''}`}>
+        {collapsed
+          ? <Logo to="/" size="sm" noLink />
+          : <Logo to="/" size="md" />
+        }
       </div>
 
       {/* User Info */}

@@ -1,99 +1,67 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useLocation } from 'react-router-dom'
 import { instructorService } from '../services/instructorService'
-import { useRefresh } from '../context/RefreshContext'
 
-/* Combine location.key (changement de page) + tick (action manuelle)
-   pour forcer le rechargement des données dans tous les cas */
-
-export function useDashboard() {
-  const { key }           = useLocation()
-  const { tick }          = useRefresh()
-  const [data, setData]   = useState(null)
+function useFirebaseData(fetcher) {
+  const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError]     = useState(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    instructorService.getDashboard()
-      .then(r => setData(r.data))
-      .catch(e => setError(e.response?.data?.message || 'Erreur'))
+    fetcher()
+      .then(setData)
+      .catch(e => setError(e.message || 'Erreur'))
       .finally(() => setLoading(false))
-  }, [key, tick])
+  }, [])
 
-  return { data, loading, error }
+  useEffect(() => { load() }, [load])
+
+  return { data, loading, error, reload: load }
+}
+
+export function useDashboard() {
+  return useFirebaseData(() => instructorService.getDashboard())
 }
 
 export function useInstructorStats() {
-  const { key }           = useLocation()
-  const { tick }          = useRefresh()
-  const [data, setData]   = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-
-  useEffect(() => {
-    setLoading(true)
-    setError(null)
-    instructorService.getStats()
-      .then(r => setData(r.data))
-      .catch(e => setError(e.response?.data?.message || 'Erreur'))
-      .finally(() => setLoading(false))
-  }, [key, tick])
-
-  return { data, loading, error }
+  return useFirebaseData(() => instructorService.getStats())
 }
 
-export function useMyCourses(initialParams = {}) {
-  const { key }             = useLocation()
-  const { tick }            = useRefresh()
+export function useMyCourses(params = {}) {
   const [courses, setCourses] = useState([])
-  const [meta, setMeta]     = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState(null)
-  const [params, setParams] = useState(initialParams)
-
-  const load = useCallback((overrides) => {
-    const p = overrides ? { ...params, ...overrides } : params
-    setLoading(true)
-    setError(null)
-    instructorService.getMyCourses(p)
-      .then(r => {
-        setCourses(r.data.data ?? r.data)
-        setMeta(r.data.meta ?? null)
-      })
-      .catch(e => setError(e.response?.data?.message || 'Erreur'))
-      .finally(() => setLoading(false))
-  }, [params])
-
-  useEffect(() => { load() }, [key, tick, load])
-
-  return { courses, meta, loading, error, reload: load }
-}
-
-export function useStudents(initialParams = {}) {
-  const { key }               = useLocation()
-  const { tick }              = useRefresh()
-  const [students, setStudents] = useState([])
-  const [meta, setMeta]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
-  const [params, setParams]   = useState(initialParams)
 
   const load = useCallback((overrides) => {
-    const p = overrides ? { ...params, ...overrides } : params
     setLoading(true)
     setError(null)
-    instructorService.getStudents(p)
-      .then(r => {
-        setStudents(r.data.data ?? r.data)
-        setMeta(r.data.meta ?? null)
-      })
-      .catch(e => setError(e.response?.data?.message || 'Erreur'))
+    instructorService.getMyCourses({ ...params, ...overrides })
+      .then(data => setCourses(Array.isArray(data) ? data : (data?.data || [])))
+      .catch(e => setError(e.message || 'Erreur'))
       .finally(() => setLoading(false))
-  }, [params])
+  }, [])
 
-  useEffect(() => { load() }, [key, tick, load])
+  useEffect(() => { load() }, [load])
 
-  return { students, meta, loading, error, reload: load }
+  return { courses, loading, error, reload: load }
+}
+
+export function useStudents(params = {}) {
+  const [students, setStudents] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState(null)
+
+  const load = useCallback((overrides) => {
+    setLoading(true)
+    setError(null)
+    instructorService.getStudents({ ...params, ...overrides })
+      .then(data => setStudents(Array.isArray(data) ? data : (data?.data || [])))
+      .catch(e => setError(e.message || 'Erreur'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  return { students, loading, error, reload: load }
 }

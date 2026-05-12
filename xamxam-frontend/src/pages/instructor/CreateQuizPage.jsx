@@ -49,23 +49,23 @@ export default function CreateQuizPage() {
 
   // ── Charger mes cours ──────────────────────────────────────────
   useEffect(() => {
-    instructorService.getMyCourses({ per_page: 100 })
-      .then(r => setMyCourses(r.data.data ?? r.data))
+    instructorService.getMyCourses()
+      .then(r => setMyCourses(Array.isArray(r) ? r : (r?.data ?? [])))
   }, [])
 
   // ── Charger sections quand un cours est sélectionné ────────────
   useEffect(() => {
     if (!selectedCourse) return
     instructorService.getSections(selectedCourse)
-      .then(r => setSections(r.data))
+      .then(r => setSections(Array.isArray(r) ? r : (r?.data ?? [])))
   }, [selectedCourse])
 
-  // ── Toutes les leçons aplaties du cours ────────────────────────
+  // ── Toutes les leçons aplaties du cours (tous types) ─────────
   const allLessons = sections.flatMap(s =>
-    (s.lessons ?? []).filter(l => l.type !== 'quiz').map(l => ({
-      ...l, sectionTitle: s.title,
-    }))
+    (s.lessons ?? []).map(l => ({ ...l, sectionTitle: s.title }))
   )
+
+  const selectedLessonObj = allLessons.find(l => l.id === selectedLesson)
 
   const updateQuiz = (field, val) => setQuiz(p => ({ ...p, [field]: val }))
 
@@ -118,7 +118,7 @@ export default function CreateQuizPage() {
         })),
       }
 
-      await instructorService.createQuiz(selectedLesson, payload)
+      await instructorService.createQuiz(selectedLesson, selectedCourse, payload)
       setSaved(true)
       showToast('Quiz sauvegardé avec succès !')
       setTimeout(() => navigate('/instructor/courses'), 2000)
@@ -171,18 +171,56 @@ export default function CreateQuizPage() {
           </div>
 
           {/* Leçon */}
-          <div>
+          <div className="lg:col-span-1">
             <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
               Leçon *
             </label>
-            <select className="w-full px-3 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
-              value={selectedLesson} onChange={e => setSelectedLesson(e.target.value)}
-              disabled={!selectedCourse}>
-              <option value="">Choisir une leçon...</option>
-              {allLessons.map(l => (
-                <option key={l.id} value={l.id}>{l.sectionTitle} — {l.title}</option>
+            <select
+              className={`w-full px-3 py-2.5 rounded-xl border focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm ${
+                selectedLessonObj && selectedLessonObj.type !== 'quiz'
+                  ? 'border-amber-400 bg-amber-50'
+                  : 'border-slate-200'
+              }`}
+              value={selectedLesson}
+              onChange={e => setSelectedLesson(e.target.value)}
+              disabled={!selectedCourse}
+            >
+              <option value="">
+                {!selectedCourse
+                  ? 'Sélectionnez un cours d\'abord...'
+                  : allLessons.length === 0
+                  ? 'Aucune leçon dans ce cours'
+                  : 'Choisir une leçon...'}
+              </option>
+              {sections.map(s => (
+                s.lessons?.length > 0 && (
+                  <optgroup key={s.id} label={`📂 ${s.title}`}>
+                    {s.lessons.map(l => (
+                      <option key={l.id} value={l.id}>
+                        {l.type === 'quiz' ? '📝' : l.type === 'video' ? '🎥' : '📄'} {l.title}
+                        {l.type !== 'quiz' ? ' (changer en type Quiz)' : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                )
               ))}
             </select>
+
+            {/* Avertissement si leçon non-quiz sélectionnée */}
+            {selectedLessonObj && selectedLessonObj.type !== 'quiz' && (
+              <p className="text-amber-600 text-xs mt-1.5 flex items-start gap-1">
+                ⚠️ Cette leçon est de type <strong>{selectedLessonObj.type}</strong>.
+                Changez son type en <strong>Quiz</strong> dans l'éditeur de cours pour que les apprenants puissent y accéder.
+              </p>
+            )}
+            {selectedLessonObj && selectedLessonObj.type === 'quiz' && (
+              <p className="text-green-600 text-xs mt-1.5">✅ Leçon de type Quiz — les apprenants pourront démarrer ce quiz.</p>
+            )}
+            {selectedCourse && allLessons.length === 0 && (
+              <p className="text-slate-400 text-xs mt-1.5">
+                Ce cours n'a pas encore de leçons. Créez-en d'abord dans l'éditeur de cours.
+              </p>
+            )}
           </div>
 
           {/* Titre */}

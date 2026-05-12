@@ -1,70 +1,66 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { authService } from '../services/authService'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from '../firebase/config'
+import { getUserProfile, login as fbLogin, logout as fbLogout, register as fbRegister } from '../firebase/authService'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser]       = useState(null)
-  const [token, setToken]     = useState(() => localStorage.getItem('xamxam_token'))
   const [loading, setLoading] = useState(true)
 
-  const clearSession = useCallback(() => {
+  /* ── Écouter les changements d'état Firebase Auth ── */
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Charger le profil Firestore (contient le rôle)
+        const profile = await getUserProfile(firebaseUser.uid)
+        if (profile) {
+          setUser({ ...profile, uid: firebaseUser.uid })
+        } else {
+          // Profil manquant → déconnecter
+          await fbLogout()
+          setUser(null)
+        }
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+    return () => unsub()
+  }, [])
+
+  const login = async (email, password) => {
+    const { user: profile } = await fbLogin(email, password)
+    // onAuthStateChanged va auto-mettre à jour le state
+    return profile
+  }
+
+  const register = async (data) => {
+    const result = await fbRegister(data)
+    return result
+  }
+
+  const logout = async () => {
+    await fbLogout()
     setUser(null)
-    setToken(null)
-    localStorage.removeItem('xamxam_token')
-    localStorage.removeItem('xamxam_user')
-  }, [])
+  }
 
-  // Valider le token au démarrage (évite les tokens expirés après migrate:fresh)
-  useEffect(() => {
-    const t = localStorage.getItem('xamxam_token')
-    if (!t) { setLoading(false); return }
-
-    authService.me()
-      .then(({ data }) => {
-        setUser(data)
-        setToken(t)
-        localStorage.setItem('xamxam_user', JSON.stringify(data))
-      })
-      .catch(() => {
-        // Token invalide → vider la session
-        clearSession()
-      })
-      .finally(() => setLoading(false))
-  }, [clearSession])
-
-  // Écouter l'événement 401 de api.js
-  useEffect(() => {
-    const handler = () => clearSession()
-    window.addEventListener('auth:expired', handler)
-    return () => window.removeEventListener('auth:expired', handler)
-  }, [clearSession])
-
-  const login = useCallback((userData, authToken) => {
-    setUser(userData)
-    setToken(authToken)
-    localStorage.setItem('xamxam_token', authToken)
-    localStorage.setItem('xamxam_user', JSON.stringify(userData))
-  }, [])
-
-  const logout = useCallback(async () => {
-    try { if (token) await authService.logout() } catch {}
-    clearSession()
-  }, [token, clearSession])
-
-  const refreshUser = useCallback(async () => {
-    if (!token) return
-    try {
-      const { data } = await authService.me()
-      setUser(data)
-      localStorage.setItem('xamxam_user', JSON.stringify(data))
-    } catch { clearSession() }
-  }, [token, clearSession])
+  const refreshUser = async () => {
+    if (auth.currentUser) {
+      const profile = await getUserProfile(auth.currentUser.uid)
+      if (profile) setUser({ ...profile, uid: auth.currentUser.uid })
+    }
+  }
 
   return (
     <AuthContext.Provider value={{
-      user, token, loading,
-      login, logout, refreshUser,
+      user,
+      loading,
+      login,
+      logout,
+      register,
+      refreshUser,
       isAdmin:      () => user?.role === 'admin',
       isInstructor: () => user?.role === 'instructor',
       isStudent:    () => user?.role === 'student',
@@ -76,6 +72,6 @@ export function AuthProvider({ children }) {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
+  if (!ctx) throw new Error('useAuth must be inside AuthProvider')
   return ctx
 }

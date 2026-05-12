@@ -7,7 +7,6 @@ import Badge from '../../components/ui/Badge'
 import Button from '../../components/ui/Button'
 import Skeleton from '../../components/ui/Skeleton'
 import { adminService } from '../../services/adminService'
-import { useRefresh } from '../../context/RefreshContext'
 
 function Toast({ message, type, onClose }) {
   useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t) }, [onClose])
@@ -20,9 +19,7 @@ function Toast({ message, type, onClose }) {
 }
 
 function PreviewModal({ course, onClose, onPublish, onReject, acting }) {
-  const thumbUrl = course.thumbnail
-    ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
-    : null
+  const thumbUrl = course.thumbnail || null
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -36,7 +33,7 @@ function PreviewModal({ course, onClose, onPublish, onReject, acting }) {
           }
           <div>
             <h3 className="text-xl font-bold">{course.title}</h3>
-            <p className="text-white/80 text-sm mt-0.5">par {course.instructor?.name ?? '—'}</p>
+            <p className="text-white/80 text-sm mt-0.5">par {course.instructorName ?? '—'}</p>
           </div>
         </div>
         <div className="p-6 space-y-4">
@@ -54,7 +51,7 @@ function PreviewModal({ course, onClose, onPublish, onReject, acting }) {
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
-            {course.category && <Badge color="cyan">{course.category.name}</Badge>}
+            {course.categoryName && <Badge color="cyan">{course.categoryName}</Badge>}
             <Badge color="gray">{course.level}</Badge>
           </div>
         </div>
@@ -75,7 +72,6 @@ function PreviewModal({ course, onClose, onPublish, onReject, acting }) {
 }
 
 export default function AdminValidationPage() {
-  const { refresh }             = useRefresh()
   const [courses, setCourses]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [preview, setPreview]   = useState(null)
@@ -86,8 +82,8 @@ export default function AdminValidationPage() {
   const showToast = (message, type = 'success') => setToast({ message, type })
 
   useEffect(() => {
-    adminService.getCourses({ status: 'pending', per_page: 50 })
-      .then(r => setCourses(r.data.data ?? r.data))
+    adminService.getCourses({ status: 'pending' })
+      .then(r => setCourses(Array.isArray(r) ? r : (r?.data ?? [])))
       .finally(() => setLoading(false))
   }, [])
 
@@ -100,7 +96,6 @@ export default function AdminValidationPage() {
       setHistory(p => [{ ...c, verdict: 'published', at: new Date().toLocaleTimeString('fr-FR') }, ...p])
       setPreview(null)
       showToast('Cours publié avec succès !')
-      refresh()
     } catch { showToast('Erreur.', 'error') }
     finally { setActing(null) }
   }
@@ -114,7 +109,6 @@ export default function AdminValidationPage() {
       setHistory(p => [{ ...c, verdict: 'rejected', at: new Date().toLocaleTimeString('fr-FR') }, ...p])
       setPreview(null)
       showToast('Cours refusé.')
-      refresh()
     } catch { showToast('Erreur.', 'error') }
     finally { setActing(null) }
   }
@@ -175,7 +169,7 @@ export default function AdminValidationPage() {
                   <div className="flex items-center gap-2 flex-wrap mb-1">
                     <h3 className="font-bold text-slate-800 text-sm">{course.title}</h3>
                     <Badge color="cyan">Cours</Badge>
-                    {course.category && <Badge color="gray">{course.category.name}</Badge>}
+                    {course.categoryName && <Badge color="gray">{course.categoryName}</Badge>}
                   </div>
                   <p className="text-slate-400 text-xs mb-1">
                     {course.instructor?.name ?? '—'} · {course.level} · <strong className="text-slate-600">{Number(course.price ?? 0).toLocaleString('fr-FR')} FCFA</strong>

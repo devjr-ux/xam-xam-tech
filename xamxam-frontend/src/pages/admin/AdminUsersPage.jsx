@@ -6,7 +6,6 @@ import Button from '../../components/ui/Button'
 import Badge from '../../components/ui/Badge'
 import Skeleton from '../../components/ui/Skeleton'
 import { adminService } from '../../services/adminService'
-import { useRefresh } from '../../context/RefreshContext'
 import { useDebounce } from '../../hooks/useDebounce'
 
 const roleBadge = { admin: 'purple', instructor: 'blue', student: 'green' }
@@ -23,7 +22,6 @@ function Toast({ message, type, onClose }) {
 }
 
 export default function AdminUsersPage() {
-  const { refresh }             = useRefresh()
   const [users, setUsers]       = useState([])
   const [meta, setMeta]         = useState(null)
   const [loading, setLoading]   = useState(true)
@@ -39,7 +37,7 @@ export default function AdminUsersPage() {
   const load = useCallback((params = {}) => {
     setLoading(true)
     adminService.getUsers({ search: debouncedSearch, role: roleFilter, ...params })
-      .then(r => { setUsers(r.data.data ?? r.data); setMeta(r.data.meta ?? null) })
+      .then(r => { const arr = Array.isArray(r) ? r : (r?.data ?? []); setUsers(arr); setMeta(null) })
       .finally(() => setLoading(false))
   }, [debouncedSearch, roleFilter])
 
@@ -52,7 +50,6 @@ export default function AdminUsersPage() {
       await adminService.updateUser(user.id, { status: newStatus })
       setUsers(p => p.map(u => u.id === user.id ? { ...u, status: newStatus } : u))
       showToast(`Utilisateur ${newStatus === 'active' ? 'activé' : 'suspendu'}.`)
-      refresh()
     } catch {
       showToast('Erreur lors de la mise à jour.', 'error')
     } finally { setActing(null) }
@@ -65,7 +62,6 @@ export default function AdminUsersPage() {
       await adminService.deleteUser(user.id)
       setUsers(p => p.filter(u => u.id !== user.id))
       showToast('Utilisateur supprimé.')
-      refresh()
     } catch (e) {
       showToast(e.response?.data?.message || 'Erreur.', 'error')
     } finally { setActing(null) }
@@ -145,7 +141,7 @@ export default function AdminUsersPage() {
                           <Badge color={roleBadge[user.role] ?? 'gray'}>{roleLabel[user.role] ?? user.role}</Badge>
                         </td>
                         <td className="px-5 py-4 hidden lg:table-cell">
-                          <span className="text-slate-500 text-xs">{new Date(user.created_at).toLocaleDateString('fr-FR')}</span>
+                          <span className="text-slate-500 text-xs">{user.createdAt ? new Date(user.createdAt.seconds ? user.createdAt.seconds*1000 : user.createdAt).toLocaleDateString('fr-FR') : '—'}</span>
                         </td>
                         <td className="px-5 py-4">
                           <Badge color={user.status === 'active' ? 'green' : 'red'}>

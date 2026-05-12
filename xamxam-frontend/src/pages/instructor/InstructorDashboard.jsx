@@ -131,7 +131,7 @@ export default function InstructorDashboard() {
                 <div key={course.id} className="flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0 overflow-hidden">
                     {course.thumbnail
-                      ? <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`} alt="" className="w-full h-full object-cover" />
+                      ? <img src={course.thumbnail} alt="" className="w-full h-full object-cover" />
                       : course.title.charAt(0)
                     }
                   </div>
@@ -141,11 +141,11 @@ export default function InstructorDashboard() {
                       <Badge color={status.color}>{status.label}</Badge>
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
-                      <span>{course.students_count ?? 0} apprenants</span>
+                      <span>{course.students_count ?? course.enrollmentsCount ?? 0} apprenants</span>
                       {course.rating > 0 && <span>⭐ {course.rating}</span>}
                     </div>
                     <ProgressBar
-                      value={course.students_count > 0 ? Math.min(100, course.students_count) : 0}
+                      value={Math.min(100, course.students_count ?? course.enrollmentsCount ?? 0)}
                       showPercent={false}
                     />
                   </div>

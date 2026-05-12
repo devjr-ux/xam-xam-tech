@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Thumbnails des cours — upload par instructeurs/admin, lecture publique
+    match /thumbnails/{courseId}/{fileName} {
+      allow read:  if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Vidéos des leçons — upload par instructeurs/admin, lecture authentifiée
+    match /lessons/{courseId}/{folder}/{fileName} {
+      allow read:  if request.auth != null;
+      allow write: if request.auth != null
+                   && request.resource.size < 500 * 1024 * 1024;
+    }
+
+    // Avatars utilisateurs
+    match /avatars/{userId}/{fileName} {
+      allow read:  if true;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

@@ -27,7 +27,7 @@ export default function StudentCoursesPage() {
 
   useEffect(() => {
     studentService.getMyCourses()
-      .then(r => setEnrollments(r.data ?? []))
+      .then(r => setEnrollments(r ?? []))
       .finally(() => setLoading(false))
   }, [])
 
@@ -105,7 +105,7 @@ export default function StudentCoursesPage() {
             const prog   = enrollment.progress ?? 0
             const status = getStatusLabel(prog)
             const thumbUrl = course.thumbnail
-              ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${course.thumbnail}`
+              ? course.thumbnail
               : null
 
             return (

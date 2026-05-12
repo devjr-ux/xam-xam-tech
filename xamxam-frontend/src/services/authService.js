@@ -1,8 +1,11 @@
-import api from './api'
+import { login, logout, register, getUserProfile, updateUserProfile } from '../firebase/authService'
+import { auth } from '../firebase/config'
 
 export const authService = {
-  login: (credentials) => api.post('/auth/login', credentials),
-  register: (data) => api.post('/auth/register', data),
-  logout: () => api.post('/auth/logout'),
-  me: () => api.get('/auth/me'),
+  login:             (email, password) => login(email, password),
+  register:          (data)            => register(data),
+  logout:            ()                => logout(),
+  me:                ()                => auth.currentUser ? getUserProfile(auth.currentUser.uid) : null,
+  updateProfile:     (data)            => auth.currentUser ? updateUserProfile(auth.currentUser.uid, data) : null,
+  getCurrentUser:    ()                => auth.currentUser,
 }

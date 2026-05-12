@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { HiMenu, HiX } from 'react-icons/hi'
-import { FaGraduationCap } from 'react-icons/fa'
 import { useAuth } from '../../context/AuthContext'
 import Button from '../ui/Button'
+import Logo from '../ui/Logo'
 
 const navLinks = [
   { label: 'Accueil', to: '/' },
@@ -45,15 +45,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl flex items-center justify-center">
-              <FaGraduationCap className="text-white text-lg" />
-            </div>
-            <span className="text-xl font-bold text-white">
-              Xam<span className="text-cyan-400">Xam</span>
-              <span className="text-slate-400 text-sm font-normal ml-1">Tech</span>
-            </span>
-          </Link>
+          <Logo to="/" size="md" />
 
           {/* Desktop Links */}
           <div className="hidden md:flex items-center gap-8">

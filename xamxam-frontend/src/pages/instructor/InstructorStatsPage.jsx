@@ -43,7 +43,7 @@ export default function InstructorStatsPage() {
     : 1
 
   const maxStudents = data?.courses_breakdown?.length
-    ? Math.max(...data.courses_breakdown.map(c => c.students_count ?? 0), 1)
+    ? Math.max(...data.courses_breakdown.map(c => (c.students_count ?? c.enrollmentsCount ?? 0) ?? 0), 1)
     : 1
 
   return (
@@ -156,11 +156,11 @@ export default function InstructorStatsPage() {
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-sm font-medium text-slate-700 truncate max-w-[160px]">{c.title}</span>
                     <span className="text-xs text-slate-500 ml-2 flex-shrink-0">
-                      {(c.students_count ?? 0).toLocaleString('fr-FR')} apprenants
+                      {((c.students_count ?? c.enrollmentsCount ?? 0) ?? 0).toLocaleString('fr-FR')} apprenants
                     </span>
                   </div>
                   <ProgressBar
-                    value={Math.round(((c.students_count ?? 0) / maxStudents) * 100)}
+                    value={Math.round((((c.students_count ?? c.enrollmentsCount ?? 0) ?? 0) / maxStudents) * 100)}
                     showPercent={false}
                     color={COLORS[i % COLORS.length]}
                   />
@@ -193,12 +193,12 @@ export default function InstructorStatsPage() {
           <div className="space-y-3">
             {data.courses_breakdown.map((c) => {
               const status = statusMap[c.status] ?? statusMap.draft
-              const revenue = Number(c.price ?? 0) * (c.students_count ?? 0)
+              const revenue = Number(c.price ?? 0) * ((c.students_count ?? c.enrollmentsCount ?? 0) ?? 0)
               return (
                 <div key={c.id} className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
                     {c.thumbnail
-                      ? <img src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}/storage/${c.thumbnail}`} alt="" className="w-full h-full object-cover" />
+                      ? <img src={c.thumbnail} alt="" className="w-full h-full object-cover" />
                       : c.title.charAt(0)
                     }
                   </div>
@@ -209,7 +209,7 @@ export default function InstructorStatsPage() {
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-400">
                       {c.rating > 0 && <span>⭐ {c.rating}</span>}
-                      <span>👥 {(c.students_count ?? 0).toLocaleString('fr-FR')} apprenants</span>
+                      <span>👥 {((c.students_count ?? c.enrollmentsCount ?? 0) ?? 0).toLocaleString('fr-FR')} apprenants</span>
                       <span>💰 {Number(c.price ?? 0).toLocaleString('fr-FR')} FCFA</span>
                     </div>
                   </div>

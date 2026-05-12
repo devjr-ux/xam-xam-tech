@@ -46,17 +46,14 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (!enrollmentId) { navigate(`/courses/${courseId}`); return }
-    studentService.initiatePayment(enrollmentId)
-      .then(r => {
-        // Déjà payé ou gratuit → accès direct
-        if (r.data.has_access) {
-          navigate(`/courses/${courseId}/learn`)
-          return
-        }
-        setPaymentInfo(r.data)
+    studentService.checkAccess(courseId)
+      .then(async access => {
+        if (access.hasAccess) { navigate(`/courses/${courseId}/learn`); return }
+        const info = await studentService.initiatePayment(enrollmentId)
+        setPaymentInfo(info)
+        setLoading(false)
       })
-      .catch(() => navigate(`/courses/${courseId}`))
-      .finally(() => setLoading(false))
+      .catch(() => { navigate(`/courses/${courseId}`); setLoading(false) })
   }, [enrollmentId, courseId, navigate])
 
   const handleConfirm = async () => {

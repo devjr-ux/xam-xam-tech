@@ -24,7 +24,7 @@ export default function AdminStatsPage() {
   useRefreshOnNav(() => {
     setLoading(true)
     adminService.getDashboard()
-      .then(r => setData(r.data))
+      .then(r => setData(r))
       .finally(() => setLoading(false))
   })
 

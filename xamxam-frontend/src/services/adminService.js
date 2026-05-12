@@ -1,15 +1,14 @@
-import api from './api'
+import * as fbAdmin  from '../firebase/adminService'
+import * as fbCourse from '../firebase/courseService'
 
 export const adminService = {
-  getDashboard: ()           => api.get('/dashboard'),
-  getStats:     ()           => api.get('/admin/stats'),
-
-  getUsers:   (params)       => api.get('/admin/users', { params }),
-  updateUser: (id, data)     => api.put(`/admin/users/${id}`, data),
-  deleteUser: (id)           => api.delete(`/admin/users/${id}`),
-
-  getCourses:     (params)   => api.get('/admin/courses', { params }),
-  publishCourse:  (id)       => api.post(`/admin/courses/${id}/publish`),
-  rejectCourse:   (id)       => api.post(`/admin/courses/${id}/reject`),
-  deleteCourse:   (id)       => api.delete(`/admin/courses/${id}`),
+  getDashboard:   ()             => fbAdmin.getAdminStats(),
+  getStats:       ()             => fbAdmin.getAdminStats(),
+  getUsers:       (params)       => fbAdmin.getUsers(params),
+  updateUser:     (id, data)     => fbAdmin.updateUser(id, data),
+  deleteUser:     (id)           => fbAdmin.updateUser(id, { status: 'deleted' }),
+  getCourses:     (params)       => fbCourse.getAllCourses(params),
+  publishCourse:  (id)           => fbCourse.publishCourse(id),
+  rejectCourse:   (id)           => fbCourse.rejectCourse(id),
+  deleteCourse:   (id)           => fbCourse.deleteCourse(id),
 }

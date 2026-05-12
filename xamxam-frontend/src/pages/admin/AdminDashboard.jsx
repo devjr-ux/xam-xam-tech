@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   useRefreshOnNav(() => {
     setLoading(true)
     adminService.getDashboard()
-      .then(r => setData(r.data))
+      .then(r => setData(r))
       .finally(() => setLoading(false))
   })
 
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
                     <div className="text-right">
                       <Badge color={roleBadge[u.role] ?? 'gray'}>{roleLabel[u.role] ?? u.role}</Badge>
                       <p className="text-xs text-slate-400 mt-1">
-                        {new Date(u.created_at).toLocaleDateString('fr-FR')}
+                        {u.createdAt ? new Date(u.createdAt.seconds ? u.createdAt.seconds*1000 : u.createdAt).toLocaleDateString('fr-FR') : '—'}
                       </p>
                     </div>
                   </div>
