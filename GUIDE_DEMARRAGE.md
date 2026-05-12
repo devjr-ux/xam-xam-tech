@@ -1,198 +1,222 @@
 # XamXam Tech — Guide de démarrage
 
+> Plateforme e-learning moderne — React + Firebase + Cloudinary
+
+---
+
 ## Prérequis
-- Node.js 18+
-- PHP 8.1+ & Composer
-- MySQL 8+
+
+- **Node.js** 18+ → [nodejs.org](https://nodejs.org)
+- **Firebase CLI** → `npm install -g firebase-tools`
+- Compte **Firebase** → [console.firebase.google.com](https://console.firebase.google.com)
+- Compte **Cloudinary** (gratuit) → [cloudinary.com](https://cloudinary.com) *(pour les images)*
 
 ---
 
-## 1. Base de données
-
-Créez la base de données MySQL :
-
-```sql
-CREATE DATABASE xamxam_tech CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
----
-
-## 2. Backend Laravel
-
-```bash
-cd xamxam-backend
-
-# Configurer la DB dans .env
-# DB_DATABASE=xamxam_tech
-# DB_USERNAME=root
-# DB_PASSWORD=votre_mot_de_passe
-
-# Installer les dépendances (déjà fait)
-composer install
-
-# Générer la clé (déjà fait)
-php artisan key:generate
-
-# Migrations + Seed
-php artisan migrate --seed
-
-# Lancer le serveur
-php artisan serve
-# → http://localhost:8000
-```
-
----
-
-## 3. Frontend React
+## 1. Installation locale
 
 ```bash
 cd xamxam-frontend
-
-# Installer les dépendances (déjà fait)
 npm install
-
-# Lancer le serveur de dev
 npm run dev
 # → http://localhost:5173
 ```
 
 ---
 
-## 4. Comptes de démonstration
+## 2. Variables d'environnement
 
-| Rôle | Email | Mot de passe |
-|------|-------|-------------|
-| 👑 Admin | admin@xamxam.com | password |
-| 👨‍🏫 Formateur | formateur@xamxam.com | password |
-| 🎓 Apprenant | apprenant@xamxam.com | password |
+Créez ou modifiez le fichier `xamxam-frontend/.env` :
+
+```env
+# Firebase
+VITE_FIREBASE_API_KEY=votre_api_key
+VITE_FIREBASE_AUTH_DOMAIN=votre_projet.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=votre_projet
+VITE_FIREBASE_STORAGE_BUCKET=votre_projet.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=votre_sender_id
+VITE_FIREBASE_APP_ID=votre_app_id
+
+# Cloudinary (pour les images de cours)
+VITE_CLOUDINARY_CLOUD_NAME=votre_cloud_name
+VITE_CLOUDINARY_UPLOAD_PRESET=votre_upload_preset
+```
 
 ---
 
-## 5. Structure du projet
+## 3. Configuration Firebase
+
+### 3.1 Créer le projet Firebase
+1. Allez sur [console.firebase.google.com](https://console.firebase.google.com)
+2. **Créer un projet** → notez le Project ID
+3. Activez **Authentication** → Email/Password
+4. Activez **Firestore** → mode Production
+
+### 3.2 Déployer les règles et index Firestore
+
+```bash
+cd xamxam-frontend
+firebase login
+firebase use votre_project_id
+firebase deploy --only firestore
+```
+
+### 3.3 Créer le compte Admin
+1. Inscrivez-vous sur l'application (`/register`) avec votre email
+2. Allez dans **Firestore Console** → collection `users`
+3. Trouvez votre document et changez `role` : `"student"` → `"admin"`
+
+---
+
+## 4. Configuration Cloudinary (images gratuites)
+
+1. Créez un compte gratuit sur [cloudinary.com](https://cloudinary.com)
+2. Dashboard → Settings → **Upload** → **Upload presets** → **Add upload preset**
+3. Signing Mode : **Unsigned** → sauvegardez
+4. Copiez votre **Cloud Name** et le **nom du preset**
+5. Ajoutez-les dans `.env` (voir section 2)
+
+---
+
+## 5. Déploiement en production
+
+```bash
+cd xamxam-frontend
+
+# Build de production
+npm run build
+
+# Déployer sur Firebase Hosting + Firestore
+firebase deploy --only firestore,hosting --project votre_project_id
+```
+
+**URL de production :** `https://votre_project_id.web.app`
+
+---
+
+## 6. Structure du projet
 
 ```
 xam xam tech/
-├── xamxam-frontend/          ← React + Vite + Tailwind
-│   └── src/
-│       ├── animations/       ← Variantes Framer Motion
-│       ├── components/
-│       │   ├── landing/      ← Sections de la landing page
-│       │   ├── shared/       ← Navbar, Sidebar, Footer, Notifications
-│       │   └── ui/           ← Button, Card, Badge, Input, ProgressBar, Skeleton
-│       ├── context/          ← AuthContext, NotificationContext
-│       ├── hooks/            ← useApi, useDebounce, useLocalStorage
-│       ├── layouts/          ← PublicLayout, DashboardLayout
-│       ├── pages/
-│       │   ├── admin/        ← Dashboard, Users, Courses, Stats, Validation, Settings
-│       │   ├── auth/         ← Login, Register
-│       │   ├── instructor/   ← Dashboard, CreateCourse, CreateQuiz, Students, Stats
-│       │   ├── public/       ← Landing, Courses, CourseDetail, About, Contact, 404
-│       │   ├── shared/       ← Forum
-│       │   └── student/      ← Dashboard, Courses, Learn, Quiz, Certificates, Favorites, Profile
-│       ├── routes/           ← AppRouter, ProtectedRoute, menus/
-│       ├── services/         ← api, auth, course, quiz, enrollment, certificate, forum, user
-│       └── utils/            ← formatters
-│
-└── xamxam-backend/           ← Laravel 9 + Sanctum
-    ├── app/
-    │   ├── Http/
-    │   │   ├── Controllers/Api/
-    │   │   │   ├── AuthController.php
-    │   │   │   ├── CourseController.php
-    │   │   │   ├── CategoryController.php
-    │   │   │   ├── LessonController.php
-    │   │   │   ├── QuizController.php
-    │   │   │   ├── EnrollmentController.php
-    │   │   │   ├── CertificateController.php
-    │   │   │   ├── ForumController.php
-    │   │   │   ├── UserController.php
-    │   │   │   ├── NotificationController.php
-    │   │   │   └── DashboardController.php
-    │   │   └── Middleware/
-    │   │       └── RoleMiddleware.php
-    │   ├── Models/           ← User, Course, Section, Lesson, Enrollment,
-    │   │                        Quiz, QuizQuestion, QuizAttempt, Certificate,
-    │   │                        ForumPost, ForumReply, Category, LessonCompletion
-    │   └── Policies/
-    │       └── CoursePolicy.php
-    ├── database/
-    │   ├── migrations/       ← 7 fichiers de migration
-    │   └── seeders/
-    │       └── DatabaseSeeder.php
-    └── routes/
-        └── api.php           ← 35+ endpoints REST
+└── xamxam-frontend/               ← Application React
+    ├── public/                    ← Fichiers statiques (logo.png, etc.)
+    ├── src/
+    │   ├── animations/            ← Variantes Framer Motion
+    │   ├── components/
+    │   │   ├── landing/           ← Sections de la landing page
+    │   │   ├── shared/            ← Navbar, Sidebar, Footer
+    │   │   └── ui/                ← Button, Badge, Input, Logo, Skeleton...
+    │   ├── context/               ← AuthContext, NotificationContext
+    │   ├── firebase/              ← Services Firebase (Firestore)
+    │   │   ├── config.js          ← Initialisation Firebase
+    │   │   ├── authService.js     ← Inscription, connexion, profil
+    │   │   ├── courseService.js   ← CRUD cours, sections, leçons
+    │   │   ├── enrollmentService.js ← Inscriptions, progression
+    │   │   ├── quizService.js     ← Quiz, soumission, corrections
+    │   │   ├── certificateService.js ← Génération automatique certificats
+    │   │   ├── adminService.js    ← Stats admin, gestion utilisateurs
+    │   │   ├── forumService.js    ← Posts et réponses forum
+    │   │   └── settingsService.js ← Paramètres plateforme
+    │   ├── hooks/                 ← useRefreshOnNav, useInstructor...
+    │   ├── layouts/               ← PublicLayout, DashboardLayout
+    │   ├── pages/
+    │   │   ├── admin/             ← Dashboard, Users, Courses, Stats, Validation, Settings
+    │   │   ├── auth/              ← Login, Register
+    │   │   ├── instructor/        ← Dashboard, CreateCourse, CreateQuiz, Students, Stats
+    │   │   ├── public/            ← Landing, Courses, CourseDetail, About, Contact, Verify
+    │   │   ├── shared/            ← Forum
+    │   │   └── student/           ← Dashboard, Courses, Learn, Quiz, Certificates, Favorites, Profile
+    │   ├── routes/                ← AppRouter, ProtectedRoute, menus
+    │   ├── services/              ← adminService, authService, cloudinaryService...
+    │   └── utils/                 ← formatters
+    ├── firebase.json              ← Config Firebase (Hosting + Firestore)
+    ├── firestore.rules            ← Règles de sécurité Firestore
+    ├── firestore.indexes.json     ← Index composites Firestore
+    └── storage.rules              ← Règles Firebase Storage (si activé)
 ```
 
 ---
 
-## 6. API Endpoints principaux
+## 7. Rôles et accès
 
-### Auth
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| POST | /api/auth/register | Inscription |
-| POST | /api/auth/login | Connexion |
-| POST | /api/auth/logout | Déconnexion |
-| GET | /api/auth/me | Profil connecté |
+| Rôle | URL Dashboard | Capacités |
+|------|--------------|-----------|
+| 👑 **Admin** | `/admin` | Gérer users, valider cours, stats globales, paramètres |
+| 👨‍🏫 **Formateur** | `/instructor` | Créer cours, créer quiz, voir apprenants, stats |
+| 🎓 **Apprenant** | `/student` | Suivre cours, faire quiz, télécharger certificats |
+
+---
+
+## 8. Fonctionnalités
+
+### Authentification
+- Inscription / Connexion par email
+- Rôles : Admin, Formateur, Apprenant
+- Routes protégées par rôle
 
 ### Cours
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | /api/courses | Liste publique |
-| GET | /api/courses/{id} | Détail cours |
-| POST | /api/courses/{id}/enroll | S'inscrire |
-| POST | /api/courses/{id}/progress | Progression |
-| GET | /api/my-courses | Mes cours |
+- Création de cours (titre, description, catégorie, niveau, langue, prix)
+- Upload thumbnail via Cloudinary
+- Sections et leçons (vidéo, PDF, quiz)
+- Soumission pour validation admin
+- Publication / Rejet par l'admin
 
-### Quiz & Certificats
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | /api/lessons/{id}/quiz | Quiz d'une leçon |
-| POST | /api/quizzes/{id}/submit | Soumettre quiz |
-| GET | /api/certificates | Mes certificats |
+### Quiz
+- Création de quiz liés aux leçons
+- Timer, feedback immédiat, révision des réponses
+- Soumission automatique à la fin du temps
+- Score minimum configurable
 
----
+### Certificats
+- Génération **automatique** quand :
+  - 100% des leçons complétées
+  - Tous les quiz du cours réussis
+- Diplôme PDF téléchargeable
+- Page de vérification publique `/verify/:id` avec QR code
 
-## 7. Variables d'environnement
+### Paiements
+- Cours gratuits : accès immédiat
+- Cours payants : page de paiement (PayTech, Wave, Orange Money)
+- Configuration des clés API dans Admin → Paramètres
 
-### Frontend (.env)
-```
-VITE_API_URL=http://localhost:8000/api
-```
-
-### Backend (.env)
-```
-APP_NAME="XamXam Tech"
-DB_DATABASE=xamxam_tech
-FRONTEND_URL=http://localhost:5173
-SANCTUM_STATEFUL_DOMAINS=localhost:5173
-```
+### Autres
+- Forum communautaire
+- Favoris
+- Profil apprenant
+- Notifications
 
 ---
 
-## 8. Fonctionnalités complètes
+## 9. Commandes utiles
 
-### ✅ Implémentées
-- Authentification JWT/Sanctum avec rôles (Admin/Formateur/Apprenant)
-- Landing page premium avec animations Framer Motion
-- Catalogue de cours avec filtres et recherche
-- Lecteur de cours avec progression leçon par leçon
-- Quiz interactif avec timer, feedback instantané, et révision des réponses
-- Certificats téléchargeables (print PDF)
-- Forum communautaire avec réponses et likes
-- Dashboards distincts pour chaque rôle
-- Dashboard Admin : stats, gestion users, validation cours, paramètres
-- Dashboard Formateur : créer cours (stepper), créer quiz, voir apprenants, stats
-- Dashboard Apprenant : progression, favoris, profil, quiz, certificats
-- Système de notifications dans le dashboard
-- Responsive mobile / tablette / desktop
-- Sidebar collapsible avec navigation par rôle
-- 404 page animée
+```bash
+# Développement local
+npm run dev
 
-### 🚀 Prochaines étapes suggérées
-- Upload vidéos (AWS S3 ou Cloudinary)
-- Paiement Wave / Orange Money
-- Application mobile React Native
-- Messagerie privée formateur↔apprenant
-- Système de notation des cours
-- Tableau de bord temps réel (Pusher/WebSocket)
+# Build production
+npm run build
+
+# Déployer le site
+firebase deploy --only hosting --project votre_project_id
+
+# Déployer les règles Firestore
+firebase deploy --only firestore --project votre_project_id
+
+# Déployer tout sauf Storage
+firebase deploy --only firestore,hosting --project votre_project_id
+```
+
+---
+
+## 10. Stack technique
+
+| Technologie | Usage |
+|-------------|-------|
+| **React 19** + Vite | Frontend |
+| **Tailwind CSS 4** | Styles |
+| **Framer Motion** | Animations |
+| **Firebase Auth** | Authentification |
+| **Cloud Firestore** | Base de données |
+| **Firebase Hosting** | Hébergement |
+| **Cloudinary** | Stockage images (gratuit) |
+| **React Router v7** | Navigation |

@@ -3,8 +3,8 @@ import {
   query, where, orderBy, limit, serverTimestamp, increment,
   writeBatch,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
-import { db, storage } from './config'
+import { db } from './config'
+import { uploadImage } from '../services/cloudinaryService'
 
 const coursesRef = () => collection(db, 'courses')
 
@@ -93,11 +93,9 @@ export async function rejectCourse(courseId) {
   await updateDoc(doc(db, 'courses', courseId), { status: 'rejected', updatedAt: serverTimestamp() })
 }
 
-/* ── Upload thumbnail ────────────────────────────────────── */
+/* ── Upload thumbnail via Cloudinary (gratuit, sans Firebase Storage) ── */
 export async function uploadThumbnail(courseId, file) {
-  const storageRef = ref(storage, `thumbnails/${courseId}/${file.name}`)
-  await uploadBytes(storageRef, file)
-  const url = await getDownloadURL(storageRef)
+  const url = await uploadImage(file, 'xamxam/thumbnails')
   await updateDoc(doc(db, 'courses', courseId), { thumbnail: url })
   return url
 }
@@ -159,10 +157,9 @@ export async function deleteLesson(courseId, sectionId, lessonId) {
 }
 
 export async function uploadLessonFile(courseId, sectionId, lessonId, file, type) {
+  // Upload via Cloudinary (gratuit — Firebase Storage non activé)
   const folder = type === 'video' ? 'videos' : 'pdfs'
-  const storageRef = ref(storage, `lessons/${courseId}/${folder}/${lessonId}_${file.name}`)
-  await uploadBytes(storageRef, file)
-  const url = await getDownloadURL(storageRef)
+  const url = await uploadImage(file, `xamxam/lessons/${folder}`)
   const field = type === 'video' ? 'videoUrl' : 'pdfUrl'
   await updateLesson(courseId, sectionId, lessonId, { [field]: url })
   return url
