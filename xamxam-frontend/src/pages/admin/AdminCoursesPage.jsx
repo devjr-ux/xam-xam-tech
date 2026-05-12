@@ -6,6 +6,7 @@ import Badge from '../../components/ui/Badge'
 import Skeleton from '../../components/ui/Skeleton'
 import { adminService } from '../../services/adminService'
 import { useDebounce } from '../../hooks/useDebounce'
+import { useRefreshOnNav } from '../../hooks/useRefreshOnNav'
 
 const statusConfig = {
   published: { color: 'green',  label: 'Publié' },
@@ -44,6 +45,7 @@ export default function AdminCoursesPage() {
   }, [debouncedSearch, statusFilter])
 
   useEffect(() => { load() }, [load])
+  useRefreshOnNav(load)
 
   const act = async (id, action) => {
     setActing(id + action)

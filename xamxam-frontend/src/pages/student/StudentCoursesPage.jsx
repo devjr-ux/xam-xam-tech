@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useRefreshOnNav } from '../../hooks/useRefreshOnNav'
 import { motion } from 'framer-motion'
 import { FaPlay, FaSearch } from 'react-icons/fa'
 import { MdEmojiEvents, MdArrowForward } from 'react-icons/md'
@@ -25,11 +26,13 @@ export default function StudentCoursesPage() {
   const [filter, setFilter]           = useState('Tous')
   const [search, setSearch]           = useState('')
 
-  useEffect(() => {
+  useRefreshOnNav(() => {
+    setLoading(true)
     studentService.getMyCourses()
       .then(r => setEnrollments(r ?? []))
+      .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  })
 
   const filtered = enrollments.filter(e => {
     const course = e.course ?? {}

@@ -62,7 +62,23 @@ async function toggleFavorite(courseId) {
 
 export const studentService = {
   getDashboard:    ()            => getDashboard(),
-  getMyCourses:    ()            => fbEnroll.getMyCourses(uid()),
+  getMyCourses: async () => {
+    const enrollments = await fbEnroll.getMyCourses(uid())
+    return Promise.all(enrollments.map(async (e) => {
+      const course = await fbCourse.getCourse(e.courseId).catch(() => null)
+      return {
+        ...e,
+        course: course ? {
+          id:             course.id,
+          title:          course.title,
+          thumbnail:      course.thumbnail || null,
+          level:          course.level,
+          price:          course.price,
+          instructorName: course.instructorName,
+        } : null,
+      }
+    }))
+  },
   getCourses:      (params)      => fbCourse.getPublishedCourses(params),
   getCourse:       (id)          => fbCourse.getCourse(id),
   getCategories:   ()            => fbCourse.getCategories(),

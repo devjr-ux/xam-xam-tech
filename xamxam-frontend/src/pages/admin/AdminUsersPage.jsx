@@ -7,6 +7,7 @@ import Badge from '../../components/ui/Badge'
 import Skeleton from '../../components/ui/Skeleton'
 import { adminService } from '../../services/adminService'
 import { useDebounce } from '../../hooks/useDebounce'
+import { useRefreshOnNav } from '../../hooks/useRefreshOnNav'
 
 const roleBadge = { admin: 'purple', instructor: 'blue', student: 'green' }
 const roleLabel = { admin: 'Admin', instructor: 'Formateur', student: 'Apprenant' }
@@ -42,6 +43,7 @@ export default function AdminUsersPage() {
   }, [debouncedSearch, roleFilter])
 
   useEffect(() => { load() }, [load])
+  useRefreshOnNav(load)
 
   const toggleStatus = async (user) => {
     setActing(user.id)
